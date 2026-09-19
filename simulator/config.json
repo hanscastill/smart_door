@@ -1,0 +1,13 @@
+{
+  "device_id": "DOOR-001",
+  "interval_seconds": 15,
+  "scenario": "alert",
+  "seed": 42,
+  "http_url": "http://127.0.0.1:5000/api/telemetry",
+  "http_retries": 3,
+  "max_messages": 0,
+  "open_probability": 0.3,
+  "normal_open_cycles": 2,
+  "alert_after_seconds": 30,
+  "max_open_seconds": 300
+}

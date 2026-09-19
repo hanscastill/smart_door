@@ -16,3 +16,28 @@ _site/
 # counterproductive to check this file into the repository.
 # Details at https://github.com/github/pages-gem/issues/768
 Gemfile.lock
+
+# ==========================================
+# SmartDoor - Python / Codespaces
+# ==========================================
+
+# Cache de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Configuracion local de VS Code
+.vscode/
+
+# Cache de pytest
+.pytest_cache/
+
+# Entornos virtuales
+venv/
+.venv/
+
+# Base de datos generada durante ejecucion
+database/*.db
+
+# Archivos del sistema
+.DS_Store
