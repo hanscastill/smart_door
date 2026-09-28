@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Reportes - SmartDoor</title>
+
+    <style>
+
+        .seccion-graficas {
+    margin-top: 30px;
+}
+
+.grafica-card {
+    background: white;
+    padding: 25px;
+    margin-top: 20px;
+    border-radius: 14px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.grafica-card h3 {
+    margin-top: 0;
+}
+
+.grafica-contenedor {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    height: 350px;
+    margin: 20px auto;
+}
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            color: #111827;
+        }
+
+        .contenedor {
+            width: 92%;
+            max-width: 1200px;
+            margin: 30px auto;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+        }
+
+        .subtitulo {
+            color: #6b7280;
+            margin-bottom: 25px;
+        }
+
+        .acciones {
+            margin-bottom: 25px;
+        }
+
+        .boton {
+            display: inline-block;
+            padding: 11px 18px;
+            background-color: #2563eb;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 7px;
+            cursor: pointer;
+            margin-right: 8px;
+            font-size: 14px;
+        }
+
+        .boton:hover {
+            background-color: #1d4ed8;
+        }
+
+        .tarjetas {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-bottom: 30px;
+        }
+
+        .tarjeta {
+            background-color: white;
+            padding: 22px;
+            border-radius: 12px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .tarjeta span {
+            display: block;
+            color: #6b7280;
+            margin-bottom: 10px;
+        }
+
+        .tarjeta strong {
+            font-size: 30px;
+        }
+
+        .alerta {
+            color: #dc2626;
+        }
+
+        .normal {
+            color: #16a34a;
+        }
+
+        .tabla-contenedor {
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 13px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f9fafb;
+        }
+
+        .estado {
+            margin-top: 15px;
+            color: #6b7280;
+        }
+
+        @media (max-width: 800px) {
+
+            .tarjetas {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+
+<body>
+
+<div class="contenedor">
+
+    <h1>Reportes SmartDoor</h1>
+
+    <p class="subtitulo">
+        Resumen estadístico de la telemetría almacenada en SQLite.
+    </p>
+
+
+    <!-- BOTONES -->
+
+    <div class="acciones">
+
+        <a href="/dashboard" class="boton">
+            Volver al Dashboard
+        </a>
+
+        <button class="boton" onclick="cargarReportes()">
+            Actualizar reporte
+        </button>
+
+    </div>
+
+    <div class="grafica-card">
+    <h3>Historial del tiempo de apertura</h3>
+
+    <p>
+        Evolución del tiempo que la puerta permaneció abierta
+        en las últimas lecturas registradas.
+    </p>
+
+    <div class="grafica-contenedor grafica-linea">
+        <canvas id="graficaTiempo"></canvas>
+    </div>
+</div>
+
+<!-- ===================================================== -->
+<!-- GRAFICA DE ACCESOS REGISTRADOS -->
+<!-- ===================================================== -->
+
+<div class="grafica-card">
+
+    <h3>Actividad de accesos registrados</h3>
+
+    <p>
+        Cantidad de accesos detectados por el sensor
+        en las últimas lecturas registradas.
+    </p>
+
+    <div class="grafica-contenedor grafica-linea">
+        <canvas id="graficaAccesos"></canvas>
+    </div>
+
+</div>
+
+    <!-- TARJETAS -->
+
+    <div class="tarjetas">
+
+        <div class="tarjeta">
+            <span>Total de lecturas</span>
+            <strong id="totalLecturas">0</strong>
+        </div>
+
+
+        <div class="tarjeta">
+            <span>Total de alertas</span>
+            <strong id="totalAlertas" class="alerta">0</strong>
+        </div>
+
+
+        <div class="tarjeta">
+            <span>Estados normales</span>
+            <strong id="totalNormal" class="normal">0</strong>
+        </div>
+
+
+        <div class="tarjeta">
+            <span>Total de accesos</span>
+            <strong id="totalAccesos">0</strong>
+        </div>
+
+
+        <div class="tarjeta">
+            <span>Tiempo promedio abierta</span>
+            <strong id="tiempoPromedio">0 s</strong>
+        </div>
+
+
+        <div class="tarjeta">
+            <span>Tiempo máximo abierta</span>
+            <strong id="tiempoMaximo">0 s</strong>
+        </div>
+
+    </div>
+
+
+    <!-- TABLA -->
+
+    <div class="tabla-contenedor">
+
+        <h2>Resumen general del sistema</h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Indicador</th>
+                    <th>Resultado</th>
+                </tr>
+
+            </thead>
+
+            <tbody id="tablaReporte">
+
+            </tbody>
+
+        </table>
+
+        <p class="estado" id="estadoReporte">
+            Cargando información...
+        </p>
+
+    </div>
+
+</div>
+
+<!-- ========================================== -->
+<!-- GRAFICAS DE ANALISIS SMARTDOOR -->
+<!-- ========================================== -->
+
+<div class="seccion-graficas">
+
+    <h2>Análisis gráfico de SmartDoor</h2>
+
+    <p>
+        Representación visual de los estados registrados
+        por el sensor de puerta.
+    </p>
+
+    <div class="grafica-card">
+        <h3>Alertas vs Estados normales</h3>
+
+        <div class="grafica-contenedor">
+            <canvas id="graficaEstados"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<script>
+
+async function cargarReportes() {
+
+    const estado = document.getElementById("estadoReporte");
+
+    estado.textContent = "Consultando información de SQLite...";
+
+    try {
+
+        // Solicitud HTTP al backend Flask
+        const respuesta = await fetch("/api/reportes");
+
+        if (!respuesta.ok) {
+            throw new Error(
+                "Error HTTP: " + respuesta.status
+            );
+        }
+
+        const datos = await respuesta.json();
+
+        if (datos.status !== "success") {
+            throw new Error(
+                "El backend no pudo generar el reporte"
+            );
+        }
+
+        const reporte = datos.reporte;
+
+
+        // ------------------------------------------
+        // ACTUALIZAR TARJETAS
+        // ------------------------------------------
+
+        document.getElementById("totalLecturas").textContent =
+            reporte.total_lecturas;
+
+        document.getElementById("totalAlertas").textContent =
+            reporte.total_alertas;
+
+        document.getElementById("totalNormal").textContent =
+            reporte.total_normal;
+
+        document.getElementById("totalAccesos").textContent =
+            reporte.total_accesos;
+
+        document.getElementById("tiempoPromedio").textContent =
+            reporte.tiempo_promedio_abierta + " s";
+
+        document.getElementById("tiempoMaximo").textContent =
+            reporte.tiempo_maximo_abierta + " s";
+
+
+        // ------------------------------------------
+        // ACTUALIZAR TABLA
+        // ------------------------------------------
+
+        document.getElementById("tablaReporte").innerHTML = `
+
+            <tr>
+                <td>Total de lecturas procesadas</td>
+                <td>${reporte.total_lecturas}</td>
+            </tr>
+
+            <tr>
+                <td>Alertas detectadas</td>
+                <td>${reporte.total_alertas}</td>
+            </tr>
+
+            <tr>
+                <td>Lecturas normales</td>
+                <td>${reporte.total_normal}</td>
+            </tr>
+
+            <tr>
+                <td>Total de accesos registrados</td>
+                <td>${reporte.total_accesos}</td>
+            </tr>
+
+            <tr>
+                <td>Tiempo promedio de apertura</td>
+                <td>${reporte.tiempo_promedio_abierta} segundos</td>
+            </tr>
+
+            <tr>
+                <td>Tiempo máximo de apertura</td>
+                <td>${reporte.tiempo_maximo_abierta} segundos</td>
+            </tr>
+
+        `;
+
+
+        estado.textContent =
+            "Reporte actualizado correctamente desde SQLite.";
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Error cargando reportes:",
+            error
+        );
+
+        estado.textContent =
+            "Error al cargar la información del reporte.";
+    }
+}
+
+
+// Cargar automáticamente al abrir la página
+cargarReportes();
+
+</script>
+
+<script>
+async function cargarGraficaEstados() {
+
+    try {
+
+        const respuesta = await fetch("/api/reportes");
+        const datos = await respuesta.json();
+
+        if (datos.status !== "success") {
+            console.error("No fue posible obtener los reportes");
+            return;
+        }
+
+        const reporte = datos.reporte;
+
+        const contexto =
+            document.getElementById("graficaEstados");
+
+        new Chart(contexto, {
+
+            type: "doughnut",
+
+            data: {
+
+                labels: [
+                    "Alertas",
+                    "Estados normales"
+                ],
+
+                datasets: [{
+                    label: "Lecturas",
+                    data: [
+                        reporte.total_alertas,
+                        reporte.total_normal
+                    ],
+
+                    backgroundColor: [
+                        "#ef4444",
+                        "#22c55e"
+                    ],
+
+                    borderWidth: 2
+                }]
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                plugins: {
+
+                    legend: {
+                        position: "bottom"
+                    },
+
+                    title: {
+                        display: true,
+                        text: "Distribución de estados del sensor"
+                    }
+                }
+            }
+        });
+    }
+
+    catch (error) {
+
+        console.error(
+            "Error cargando gráfica:",
+            error
+        );
+    }
+}
+
+cargarGraficaEstados();
+
+async function cargarGraficaTiempo() {
+
+    try {
+
+        const respuesta = await fetch("/api/lecturas");
+        const datos = await respuesta.json();
+
+        if (!datos.lecturas || datos.lecturas.length === 0) {
+            console.log("No existen lecturas para graficar");
+            return;
+        }
+
+        // Tomar las últimas 10 lecturas
+        const lecturas = datos.lecturas
+            .slice(0, 10)
+            .reverse();
+
+        const etiquetas = lecturas.map(lectura => {
+
+            const fecha = new Date(lectura.timestamp);
+
+            return fecha.toLocaleTimeString(
+                "es-CO",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit"
+                }
+            );
+        });
+
+        const tiempos = lecturas.map(
+            lectura => lectura.measurements.open_duration
+        );
+
+        const contexto =
+            document.getElementById("graficaTiempo");
+
+        new Chart(contexto, {
+
+            type: "line",
+
+            data: {
+
+                labels: etiquetas,
+
+                datasets: [{
+                    label: "Tiempo abierta (segundos)",
+                    data: tiempos,
+                    borderColor: "#2563eb",
+                    backgroundColor: "rgba(37, 99, 235, 0.15)",
+                    borderWidth: 3,
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+
+            options: {
+
+                responsive: true,
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    y: {
+                        beginAtZero: true,
+
+                        title: {
+                            display: true,
+                            text: "Segundos"
+                        }
+                    },
+
+                    x: {
+                        title: {
+                            display: true,
+                            text: "Hora de lectura"
+                        }
+                    }
+                },
+
+                plugins: {
+
+                    legend: {
+                        position: "bottom"
+                    },
+
+                    title: {
+                        display: true,
+                        text: "Evolución del tiempo de apertura"
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando gráfica de tiempo:",
+            error
+        );
+    }
+}
+
+cargarGraficaTiempo();
+</script>
+
+</body>
+
+</html>

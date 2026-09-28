@@ -114,12 +114,19 @@
 
     </div>
 
+    <div style="display: flex; gap: 10px; margin-bottom: 25px;">
+
     <button onclick="actualizarDatos()">
         Actualizar datos
     </button>
 
-<h2 style="margin-top: 35px;">Historial de lecturas</h2>
+    <button onclick="window.location.href='/reportes'">
+        Ver reportes
+    </button>
 
+</div>
+
+<h2 style="margin-top: 35px;">Historial de lecturas</h2>
 <div class="tarjeta">
     <div style="overflow-x:auto;">
         <table id="tablaHistorial" style="width:100%; border-collapse:collapse;">

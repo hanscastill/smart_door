@@ -24,11 +24,76 @@ def obtener_conexion():
     conexion = sqlite3.connect(DB_PATH)
     conexion.row_factory = sqlite3.Row
     return conexion
+# ==========================================================
+# API DE REPORTES SMARTDOOR
+# GET /api/reportes
+# ==========================================================
 
+@app.route("/api/reportes", methods=["GET"])
+def obtener_reportes():
+    conexion = obtener_conexion()
+
+    try:
+        total_lecturas = conexion.execute(
+            "SELECT COUNT(*) AS total FROM telemetry"
+        ).fetchone()["total"]
+
+        total_alertas = conexion.execute(
+            "SELECT COUNT(*) AS total FROM telemetry "
+            "WHERE alert_status = 'ALERT'"
+        ).fetchone()["total"]
+
+        total_normal = conexion.execute(
+            "SELECT COUNT(*) AS total FROM telemetry "
+            "WHERE alert_status = 'NORMAL'"
+        ).fetchone()["total"]
+
+        tiempo_promedio = conexion.execute(
+            "SELECT ROUND(AVG(open_duration), 2) AS promedio "
+            "FROM telemetry"
+        ).fetchone()["promedio"]
+
+        tiempo_maximo = conexion.execute(
+            "SELECT MAX(open_duration) AS maximo FROM telemetry"
+        ).fetchone()["maximo"]
+
+        total_accesos = conexion.execute(
+            "SELECT SUM(access_count) AS total FROM telemetry"
+        ).fetchone()["total"]
+
+        return jsonify({
+            "status": "success",
+            "reporte": {
+                "total_lecturas": total_lecturas,
+                "total_alertas": total_alertas,
+                "total_normal": total_normal,
+                "tiempo_promedio_abierta": tiempo_promedio or 0,
+                "tiempo_maximo_abierta": tiempo_maximo or 0,
+                "total_accesos": total_accesos or 0
+            }
+        }), 200
+
+    except sqlite3.Error as error:
+        return jsonify({
+            "status": "error",
+            "message": "Error consultando reportes en SQLite",
+            "error": str(error)
+        }), 500
+
+    finally:
+        conexion.close()
 lecturas = []
 @app.route("/dashboard")
 def dashboard():
     return render_template("dashboard.html")
+
+# ==========================================================
+# PAGINA DE REPORTES
+# ==========================================================
+
+@app.route("/reportes")
+def reportes():
+    return render_template("reportes.html")
 
 @app.route("/")
 def inicio():
@@ -85,6 +150,7 @@ def recibir_telemetria():
     # --------------------------------------------------------
     measurements = datos["measurements"]
 
+
     if not isinstance(measurements, dict):
         return jsonify({
             "status": "error",
@@ -110,40 +176,56 @@ def recibir_telemetria():
             "fields": faltantes_medicion
         }), 400
 
-    # --------------------------------------------------------
+    # -------------------------------------------------------
+    # Determinar estado de alerta de SmartDoor
+    # -------------------------------------------------------
+
+    door_state = measurements["door_state"]
+    open_duration = measurements["open_duration"]
+    access_count = measurements["access_count"]
+
+    if door_state == "OPEN" and open_duration > 30:
+        alert_status = "ALERT"
+    else:
+        alert_status = "NORMAL"
+
+    measurements["alert_status"] = alert_status
+
+    # -------------------------------------------------------
     # Guardar temporalmente la lectura
-    # --------------------------------------------------------
+    # -------------------------------------------------------
     lecturas.append(datos)
 
-        # ==================================================
+    # =======================================================
     # GUARDAR TELEMETRIA EN SQLITE
-    # ==================================================
+    # =======================================================
+
     try:
         conexion = obtener_conexion()
         cursor = conexion.cursor()
 
         cursor.execute("""
-    INSERT INTO telemetry (
-        message_id,
-        device_id,
-        timestamp,
-        sequence,
-        door_state,
-        open_duration,
-        access_count,
-        alert_status
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-""", (
-    datos["message_id"],
-    datos["device_id"],
-    datos["timestamp"],
-    datos["sequence"],
-    measurements["door_state"],
-    measurements["open_duration"],
-    measurements["access_count"],
-    measurements["alert_status"]
-))
+            INSERT INTO telemetry (
+                message_id,
+                device_id,
+                timestamp,
+                sequence,
+                door_state,
+                open_duration,
+                access_count,
+                alert_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            datos["message_id"],
+            datos["device_id"],
+            datos["timestamp"],
+            datos["sequence"],
+            measurements["door_state"],
+            measurements["open_duration"],
+            measurements["access_count"],
+            measurements["alert_status"]
+        ))
 
         
         conexion.commit()
@@ -231,10 +313,60 @@ def recibir_datos_sensor():
 
 @app.route("/api/lecturas", methods=["GET"])
 def obtener_lecturas():
-    return jsonify({
-        "cantidad": len(lecturas),
-        "lecturas": lecturas
-    }), 200
+
+    conexion = obtener_conexion()
+
+    try:
+        registros = conexion.execute("""
+            SELECT
+                id,
+                message_id,
+                device_id,
+                timestamp,
+                sequence,
+                door_state,
+                open_duration,
+                access_count,
+                alert_status
+            FROM telemetry
+            ORDER BY id DESC
+        """).fetchall()
+
+        lecturas_db = []
+
+        for registro in registros:
+
+            lectura = {
+                "message_id": registro["message_id"],
+                "device_id": registro["device_id"],
+                "timestamp": registro["timestamp"],
+                "sequence": registro["sequence"],
+
+                "measurements": {
+                    "door_state": registro["door_state"],
+                    "open_duration": registro["open_duration"],
+                    "access_count": registro["access_count"],
+                    "alert_status": registro["alert_status"]
+                }
+            }
+
+            lecturas_db.append(lectura)
+
+        return jsonify({
+            "cantidad": len(lecturas_db),
+            "lecturas": lecturas_db
+        }), 200
+
+    except sqlite3.Error as error:
+
+        return jsonify({
+            "status": "error",
+            "message": "Error consultando lecturas en SQLite",
+            "error": str(error)
+        }), 500
+
+    finally:
+        conexion.close()
 
 # ==========================================
 # PRUEBA DE CONEXION CON SQLITE
