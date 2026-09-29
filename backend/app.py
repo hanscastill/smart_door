@@ -94,6 +94,74 @@ def dashboard():
 @app.route("/reportes")
 def reportes():
     return render_template("reportes.html")
+# =====================================================
+# PAGINA DE ALERTAS
+# =====================================================
+
+@app.route("/alertas")
+def pagina_alertas():
+    return render_template("alertas.html")
+
+
+# ==========================================================
+# API - ALERTAS DE SMARTDOOR
+# ==========================================================
+
+@app.route("/api/alertas", methods=["GET"])
+def obtener_alertas():
+    conexion = obtener_conexion()
+
+    try:
+        cursor = conexion.cursor()
+
+        cursor.execute("""
+            SELECT
+                id,
+                device_id,
+                timestamp,
+                door_state,
+                open_duration,
+                access_count,
+                alert_status,
+                message_id,
+                sequence
+            FROM telemetry
+            WHERE alert_status = 'ALERT'
+            ORDER BY id DESC
+        """)
+
+        filas = cursor.fetchall()
+
+        alertas = []
+
+        for fila in filas:
+            alertas.append({
+                "id": fila["id"],
+                "device_id": fila["device_id"],
+                "timestamp": fila["timestamp"],
+                "door_state": fila["door_state"],
+                "open_duration": fila["open_duration"],
+                "access_count": fila["access_count"],
+                "alert_status": fila["alert_status"],
+                "message_id": fila["message_id"],
+                "sequence": fila["sequence"]
+            })
+
+        return jsonify({
+            "status": "success",
+            "cantidad": len(alertas),
+            "alertas": alertas
+        }), 200
+
+    except Exception as error:
+        return jsonify({
+            "status": "error",
+            "message": str(error)
+        }), 500
+
+    finally:
+        conexion.close()
+
 
 @app.route("/")
 def inicio():

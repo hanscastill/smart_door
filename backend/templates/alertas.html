@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Alertas SmartDoor</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #0f172a;
+        }
+
+        .contenedor {
+            width: 92%;
+            max-width: 1300px;
+            margin: 30px auto;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        .subtitulo {
+            color: #64748b;
+            margin-bottom: 25px;
+        }
+
+        .botones {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .boton {
+            display: inline-block;
+            padding: 12px 18px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 7px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .boton:hover {
+            opacity: 0.9;
+        }
+
+        .tarjetas {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-bottom: 30px;
+        }
+
+        .tarjeta {
+            background: white;
+            padding: 22px;
+            border-radius: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+        }
+
+        .tarjeta span {
+            display: block;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .tarjeta strong {
+            font-size: 30px;
+        }
+
+        .rojo {
+            color: #dc2626;
+        }
+
+        .tabla-contenedor {
+            background: white;
+            padding: 22px;
+            border-radius: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 14px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: #f8fafc;
+        }
+
+        .alerta {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        .mensaje {
+            text-align: center;
+            color: #64748b;
+            padding: 25px;
+        }
+
+        @media (max-width: 800px) {
+            .tarjetas {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="contenedor">
+
+    <h1>Alertas SmartDoor</h1>
+
+    <p class="subtitulo">
+        Monitoreo de eventos de alerta detectados por el sensor de puerta.
+    </p>
+
+    <div class="botones">
+
+        <a href="/dashboard" class="boton">
+            Volver al Dashboard
+        </a>
+
+        <a href="/reportes" class="boton">
+            Ver reportes
+        </a>
+
+        <button class="boton" onclick="cargarAlertas()">
+            Actualizar alertas
+        </button>
+
+    </div>
+
+    <!-- TARJETAS -->
+
+    <div class="tarjetas">
+
+        <div class="tarjeta">
+            <span>Total de alertas</span>
+            <strong id="totalAlertas" class="rojo">0</strong>
+        </div>
+
+        <div class="tarjeta">
+            <span>Última alerta</span>
+            <strong id="ultimaAlerta">Sin datos</strong>
+        </div>
+
+        <div class="tarjeta">
+            <span>Mayor tiempo abierta</span>
+            <strong id="mayorTiempo">0 s</strong>
+        </div>
+
+    </div>
+
+    <!-- TABLA -->
+
+    <div class="tabla-contenedor">
+
+        <h2>Historial de alertas</h2>
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Fecha/Hora</th>
+                    <th>Dispositivo</th>
+                    <th>Estado</th>
+                    <th>Tiempo abierta</th>
+                    <th>Accesos</th>
+                    <th>Alerta</th>
+                </tr>
+            </thead>
+
+            <tbody id="tablaAlertas">
+
+                <tr>
+                    <td colspan="7" class="mensaje">
+                        Cargando alertas...
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<script>
+
+async function cargarAlertas() {
+
+    const tabla = document.getElementById("tablaAlertas");
+
+    try {
+
+        const respuesta = await fetch("/api/alertas");
+
+        if (!respuesta.ok) {
+            throw new Error("Error HTTP: " + respuesta.status);
+        }
+
+        const datos = await respuesta.json();
+
+        const alertas = datos.alertas || [];
+
+        document.getElementById("totalAlertas").textContent =
+            alertas.length;
+
+        if (alertas.length === 0) {
+
+            document.getElementById("ultimaAlerta").textContent =
+                "Sin datos";
+
+            document.getElementById("mayorTiempo").textContent =
+                "0 s";
+
+            tabla.innerHTML = `
+                <tr>
+                    <td colspan="7" class="mensaje">
+                        No existen alertas registradas
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+        // Última alerta
+        const ultima = alertas[0];
+
+        document.getElementById("ultimaAlerta").textContent =
+            ultima.device_id;
+
+        // Mayor tiempo de apertura
+        const mayorTiempo = Math.max(
+            ...alertas.map(
+                alerta => Number(alerta.open_duration) || 0
+            )
+        );
+
+        document.getElementById("mayorTiempo").textContent =
+            mayorTiempo + " s";
+
+        tabla.innerHTML = "";
+
+        alertas.forEach(alerta => {
+
+            const fecha = alerta.timestamp
+                ? new Date(alerta.timestamp).toLocaleString("es-CO")
+                : "Sin fecha";
+
+            const fila = document.createElement("tr");
+
+            fila.innerHTML = `
+                <td>${alerta.id}</td>
+                <td>${fecha}</td>
+                <td>${alerta.device_id}</td>
+                <td>${alerta.door_state}</td>
+                <td>${alerta.open_duration} segundos</td>
+                <td>${alerta.access_count}</td>
+                <td class="alerta">${alerta.alert_status}</td>
+            `;
+
+            tabla.appendChild(fila);
+        });
+
+    } catch (error) {
+
+        console.error("Error cargando alertas:", error);
+
+        tabla.innerHTML = `
+            <tr>
+                <td colspan="7" class="mensaje">
+                    Error cargando las alertas
+                </td>
+            </tr>
+        `;
+    }
+}
+
+
+// Cargar automáticamente
+cargarAlertas();
+
+</script>
+
+</body>
+</html>
