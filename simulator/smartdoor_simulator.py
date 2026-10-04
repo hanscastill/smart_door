@@ -6,6 +6,7 @@ import json
 import random
 import time
 import requests
+import paho.mqtt.client as mqtt
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -31,6 +32,37 @@ open_probability = config["open_probability"]
 normal_open_cycles = config["normal_open_cycles"]
 alert_after_seconds = config["alert_after_seconds"]
 max_open_seconds = config["max_open_seconds"]
+
+# ============================================================
+# CONFIGURACION MQTT
+# ============================================================
+
+MQTT_BROKER = "127.0.0.1"
+MQTT_PORT = 1883
+MQTT_TOPIC = "smartdoor/telemetry"
+
+cliente_mqtt = mqtt.Client(
+    mqtt.CallbackAPIVersion.VERSION2
+)
+
+try:
+    cliente_mqtt.connect(
+        MQTT_BROKER,
+        MQTT_PORT,
+        60
+    )
+
+    cliente_mqtt.loop_start()
+
+    print(
+        f"MQTT conectado a "
+        f"{MQTT_BROKER}:{MQTT_PORT}"
+    )
+
+except Exception as error:
+    print(
+        f"Error conectando con MQTT: {error}"
+    )
 
 
 # ============================================================
@@ -287,6 +319,38 @@ def enviar_telemetria(datos):
 
 
 # ============================================================
+# 9. PUBLICAR TELEMETRIA POR MQTT
+# ============================================================
+
+def publicar_mqtt(datos):
+
+    try:
+
+        mensaje = json.dumps(
+            datos,
+            ensure_ascii=False
+        )
+
+        resultado = cliente_mqtt.publish(
+            MQTT_TOPIC,
+            mensaje
+        )
+
+        resultado.wait_for_publish()
+
+        print(
+            f"MQTT publicado correctamente: "
+            f"{datos['device_id']} -> {MQTT_TOPIC}"
+        )
+
+    except Exception as error:
+
+        print(
+            f"Error publicando MQTT: {error}"
+        )
+
+
+# ============================================================
 # 9. CICLO PRINCIPAL DEL SIMULADOR
 # ============================================================
 
@@ -324,6 +388,9 @@ try:
 
             # Enviar telemetría al backend
             enviar_telemetria(datos_sensor)
+            # Publicar también la telemetría mediante MQTT
+            publicar_mqtt(datos_sensor)
+            
 
             contador_mensajes += 1
 

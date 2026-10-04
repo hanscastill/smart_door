@@ -11,7 +11,9 @@ from backend.schemas import (
     DeviceResponse
 )
 import sqlite3
-
+import json
+import threading
+import paho.mqtt.client as mqtt
 
 # ==================================================
 # FASTAPI SMARTDOOR
@@ -24,7 +26,102 @@ app = FastAPI(
 )
 templates = Jinja2Templates(directory="backend/templates")
 
+# ==================================================
+# CONFIGURACION MQTT SMARTDOOR
+# ==================================================
 
+MQTT_BROKER = "127.0.0.1"
+MQTT_PORT = 1883
+MQTT_TOPIC = "smartdoor/telemetry"
+
+
+def on_mqtt_connect(
+    client,
+    userdata,
+    flags,
+    reason_code,
+    properties
+):
+    print("=== MQTT SMARTDOOR ===")
+
+    if reason_code == 0:
+        print("Conectado correctamente al broker MQTT")
+        print("Broker:", MQTT_BROKER)
+        print("Puerto:", MQTT_PORT)
+        print("Topic:", MQTT_TOPIC)
+
+        client.subscribe(MQTT_TOPIC)
+
+        print(
+            "Suscripcion MQTT realizada correctamente"
+        )
+
+    else:
+        print(
+            "Error conectando al broker MQTT:",
+            reason_code
+        )
+
+
+def on_mqtt_message(client, userdata, msg):
+
+    try:
+        mensaje = msg.payload.decode("utf-8")
+        datos = json.loads(mensaje)
+
+        print("\nNUEVA TELEMETRIA RECIBIDA POR MQTT")
+        print("Topic:", msg.topic)
+        print("Dispositivo:", datos.get("device_id"))
+        print("Message ID:", datos.get("message_id"))
+
+    except json.JSONDecodeError as error:
+        print(
+            "MQTT - JSON invalido:",
+            error
+        )
+
+    except Exception as error:
+        print(
+            "Error procesando MQTT:",
+            error
+        )
+
+
+def iniciar_mqtt():
+
+    try:
+        print("Iniciando cliente MQTT SmartDoor...")
+
+        cliente = mqtt.Client(
+            mqtt.CallbackAPIVersion.VERSION2
+        )
+
+        cliente.on_connect = on_mqtt_connect
+        cliente.on_message = on_mqtt_message
+
+        cliente.connect(
+            MQTT_BROKER,
+            MQTT_PORT,
+            60
+        )
+
+        cliente.loop_forever()
+
+    except Exception as error:
+        print(
+            "Error iniciando cliente MQTT:",
+            error
+        )
+
+
+hilo_mqtt = threading.Thread(
+    target=iniciar_mqtt,
+    daemon=True
+)
+
+hilo_mqtt.start()
+
+print("Cliente MQTT iniciado en segundo plano")
 # ==================================================
 # ENDPOINT PRINCIPAL
 # ==================================================
@@ -55,6 +152,16 @@ def reportes(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="reportes.html"
+    )
+# ============================================
+# ALERTAS SMARTDOOR
+# ============================================
+
+@app.get("/alertas", response_class=HTMLResponse)
+def alertas(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="alertas.html"
     )
 
 
@@ -142,6 +249,56 @@ def obtener_reportes():
 # ==================================================
 # HEALTH CHECK
 # ==================================================
+# ==================================================
+# API DE ALERTAS SMARTDOOR
+# GET /api/alertas
+# ==================================================
+
+@app.get("/api/alertas")
+def obtener_alertas():
+
+    conexion = obtener_conexion()
+
+    try:
+        cursor = conexion.cursor()
+
+        cursor.execute("""
+            SELECT
+                id,
+                message_id,
+                device_id,
+                timestamp,
+                sequence,
+                door_state,
+                open_duration,
+                access_count,
+                alert_status
+            FROM telemetry
+            WHERE alert_status = 'ALERT'
+            ORDER BY id DESC
+        """)
+
+        registros = [
+            dict(fila)
+            for fila in cursor.fetchall()
+        ]
+
+        return {
+            "status": "success",
+            "total": len(registros),
+            "alertas": registros
+        }
+
+    except sqlite3.Error as error:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error consultando alertas: {error}"
+        )
+
+    finally:
+        conexion.close()
+
 
 @app.get("/health")
 def health():
