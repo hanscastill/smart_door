@@ -527,8 +527,8 @@ async function cargarGraficaTiempo() {
         });
 
         const tiempos = lecturas.map(
-            lectura => lectura.measurements.open_duration
-        );
+         lectura => lectura.open_duration
+         );
 
         const contexto =
             document.getElementById("graficaTiempo");
@@ -600,6 +600,114 @@ async function cargarGraficaTiempo() {
 }
 
 cargarGraficaTiempo();
+async function cargarGraficaAccesos() {
+
+    try {
+
+        const respuesta = await fetch("/api/lecturas");
+        const datos = await respuesta.json();
+
+        if (!datos.lecturas || datos.lecturas.length === 0) {
+            console.log("No existen lecturas para graficar accesos");
+            return;
+        }
+
+        // Tomar las últimas 10 lecturas
+        const lecturas = datos.lecturas
+            .slice(0, 10)
+            .reverse();
+
+        // Crear etiquetas con la hora
+        const etiquetas = lecturas.map(lectura => {
+
+            const fecha = new Date(lectura.timestamp);
+
+            return fecha.toLocaleTimeString(
+                "es-CO",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit"
+                }
+            );
+        });
+
+        // Obtener cantidad de accesos
+        const accesos = lecturas.map(
+            lectura => lectura.access_count
+        );
+
+        // Obtener canvas
+        const contexto =
+            document.getElementById("graficaAccesos");
+
+        new Chart(contexto, {
+
+            type: "bar",
+
+            data: {
+
+                labels: etiquetas,
+
+                datasets: [{
+                    label: "Accesos registrados",
+                    data: accesos,
+                    borderWidth: 2
+                }]
+            },
+
+            options: {
+
+                responsive: true,
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    y: {
+                        beginAtZero: true,
+
+                        ticks: {
+                            precision: 0
+                        },
+
+                        title: {
+                            display: true,
+                            text: "Cantidad de accesos"
+                        }
+                    },
+
+                    x: {
+                        title: {
+                            display: true,
+                            text: "Hora de lectura"
+                        }
+                    }
+                },
+
+                plugins: {
+
+                    legend: {
+                        position: "bottom"
+                    },
+
+                    title: {
+                        display: true,
+                        text: "Actividad de accesos registrados"
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando gráfica de accesos:",
+            error
+        );
+    }
+}
+
+cargarGraficaAccesos();
 </script>
 
 </body>

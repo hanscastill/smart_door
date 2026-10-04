@@ -20,7 +20,7 @@ with open(RUTA_CONFIG, "r", encoding="utf-8") as archivo:
     config = json.load(archivo)
 
 
-device_id = config["device_id"]
+devices = config["devices"]
 interval_seconds = config["interval_seconds"]
 scenario = config["scenario"]
 seed = config["seed"]
@@ -44,24 +44,73 @@ random.seed(seed)
 # 3. VARIABLES DEL SIMULADOR
 # ============================================================
 
-sequence = 0
-access_count = 0
-
-door_state = "CLOSED"
-open_duration = 0
-open_cycles = 0
+# Estado independiente para cada dispositivo SmartDoor
+# Estado independiente para cada dispositivo SmartDoor
+estados_dispositivos = {}
 
 
-# ============================================================
-# 4. MOSTRAR CONFIGURACION
-# ============================================================
+def obtener_ultima_secuencia(device_id):
+    """
+    Consulta al backend la última secuencia registrada
+    para evitar message_id duplicados.
+    """
 
+    try:
+        url = f"http://127.0.0.1:8000/api/devices/{device_id}/telemetry"
+
+        respuesta = requests.get(
+            url,
+            timeout=5
+        )
+
+        if respuesta.status_code == 200:
+
+            datos = respuesta.json()
+            telemetria = datos.get("telemetry", [])
+
+            if telemetria:
+                return int(telemetria[0]["sequence"])
+
+    except requests.exceptions.RequestException as error:
+        print(
+            f"No se pudo consultar la secuencia de "
+            f"{device_id}: {error}"
+        )
+
+    return 0
+
+
+for dispositivo in devices:
+
+    ultima_secuencia = obtener_ultima_secuencia(dispositivo)
+
+    estados_dispositivos[dispositivo] = {
+        "sequence": ultima_secuencia,
+        "access_count": 0,
+        "door_state": "CLOSED",
+        "open_duration": 0,
+        "open_cycles": 0
+    }
+
+    print(
+        f"{dispositivo} inicia desde sequence "
+        f"{ultima_secuencia}"
+    )
 print("=" * 55)
 print("        SMARTDOOR - SIMULADOR IoT")
 print("=" * 55)
 
-print(f"Dispositivo       : {device_id}")
+print("Dispositivos     :")
+for dispositivo in devices:
+    print(f"  - {dispositivo}")
+
+print(f"Total dispositivos: {len(devices)}")
 print(f"Escenario         : {scenario}")
+print(f"Intervalo         : {interval_seconds} segundos")
+print(f"API               : {http_url}")
+print(f"Alerta después de : {alert_after_seconds} segundos")
+
+print("=" * 55)
 print(f"Intervalo         : {interval_seconds} segundos")
 print(f"API               : {http_url}")
 print(f"Alerta después de : {alert_after_seconds} segundos")
@@ -86,101 +135,105 @@ def obtener_timestamp():
 # 6. FUNCION PARA ACTUALIZAR EL ESTADO DE LA PUERTA
 # ============================================================
 
-def actualizar_sensor():
+def actualizar_sensor(device_id):
 
-    global door_state
-    global open_duration
-    global access_count
-    global open_cycles
+    estado = estados_dispositivos[device_id]
 
-    estado_anterior = door_state
+    estado_anterior = estado["door_state"]
 
-    # --------------------------------------------------------
+    # ---------------------------------------------
     # ESCENARIO NORMAL
-    # --------------------------------------------------------
+    # ---------------------------------------------
 
     if scenario == "normal":
 
-        if door_state == "CLOSED":
+        if estado["door_state"] == "CLOSED":
 
             if random.random() < open_probability:
-                door_state = "OPEN"
-                open_duration = 0
-                open_cycles = 0
+                estado["door_state"] = "OPEN"
+                estado["open_duration"] = 0
+                estado["open_cycles"] = 0
 
         else:
 
-            open_cycles += 1
-            open_duration += interval_seconds
+            estado["open_cycles"] += 1
+            estado["open_duration"] += interval_seconds
 
-            if open_cycles >= normal_open_cycles:
-                door_state = "CLOSED"
-                open_duration = 0
-                open_cycles = 0
+            if estado["open_cycles"] >= normal_open_cycles:
+                estado["door_state"] = "CLOSED"
+                estado["open_duration"] = 0
+                estado["open_cycles"] = 0
 
-    # --------------------------------------------------------
+    # ---------------------------------------------
     # ESCENARIO ALERTA
-    # --------------------------------------------------------
+    # ---------------------------------------------
 
     elif scenario == "alert":
 
-        if door_state == "CLOSED":
+        # DOOR-002 permanece cerrada para simular
+        # una puerta funcionando en estado normal.
+        if device_id == "DOOR-002":
+            estado["door_state"] = "CLOSED"
+            estado["open_duration"] = 0
+            estado["open_cycles"] = 0
 
-            door_state = "OPEN"
-            open_duration = 0
-            open_cycles = 0
-
+        # DOOR-001 y DOOR-003 simulan apertura prolongada.
         else:
+            if estado["door_state"] == "CLOSED":
+                estado["door_state"] = "OPEN"
+                estado["open_duration"] = 0
+                estado["open_cycles"] = 0
 
-            open_duration += interval_seconds
+            else:
+                estado["open_duration"] += interval_seconds
 
-            if open_duration > max_open_seconds:
-                open_duration = max_open_seconds
+                if estado["open_duration"] > max_open_seconds:
+                    estado["open_duration"] = max_open_seconds
 
-    # --------------------------------------------------------
+    # ---------------------------------------------
     # CONTAR APERTURAS
     # CLOSED -> OPEN
-    # --------------------------------------------------------
+    # ---------------------------------------------
 
-    if estado_anterior == "CLOSED" and door_state == "OPEN":
-        access_count += 1
+    if (
+        estado_anterior == "CLOSED"
+        and estado["door_state"] == "OPEN"
+    ):
+        estado["access_count"] += 1
 
 
 # ============================================================
 # 7. CREAR JSON DE TELEMETRIA
 # ============================================================
 
-def crear_telemetria():
+def crear_telemetria(device_id):
 
-    global sequence
+    estado = estados_dispositivos[device_id]
 
-    sequence += 1
+    # Incrementar secuencia independiente del dispositivo
+    estado["sequence"] += 1
 
-    if door_state == "OPEN" and open_duration >= alert_after_seconds:
+    # Determinar estado de alerta
+    if (
+        estado["door_state"] == "OPEN"
+        and estado["open_duration"] >= alert_after_seconds
+    ):
         alert_status = "ALERT"
     else:
         alert_status = "NORMAL"
 
-    message_id = f"{device_id}-{sequence:06d}"
+    # ID único por dispositivo y secuencia
+    message_id = f"{device_id}-{estado['sequence']:06d}"
 
     datos = {
-
         "message_id": message_id,
-
         "device_id": device_id,
-
         "timestamp": obtener_timestamp(),
-
-        "sequence": sequence,
-
+        "sequence": estado["sequence"],
         "measurements": {
-
-            "door_state": door_state,
-
-            "open_duration": open_duration,
-
-            "access_count": access_count,
-
+            "door_state": estado["door_state"],
+            "open_duration": estado["open_duration"],
+            "access_count": estado["access_count"],
             "alert_status": alert_status
         }
     }
@@ -243,27 +296,44 @@ try:
 
     while True:
 
-        actualizar_sensor()
+        # Recorrer todos los dispositivos configurados
+        for device_id in devices:
 
-        datos_sensor = crear_telemetria()
+            # Actualizar estado independiente del dispositivo
+            actualizar_sensor(device_id)
 
-        print("\n" + "=" * 55)
-        print(f"LECTURA #{sequence}")
-        print("=" * 55)
+            # Crear telemetría del dispositivo
+            datos_sensor = crear_telemetria(device_id)
 
-        print(
-            json.dumps(
-                datos_sensor,
-                indent=4,
-                ensure_ascii=False
+            estado = estados_dispositivos[device_id]
+
+            print("\n" + "=" * 55)
+            print(
+                f"DISPOSITIVO: {device_id} | "
+                f"LECTURA #{estado['sequence']}"
             )
-        )
+            print("=" * 55)
 
-        enviar_telemetria(datos_sensor)
+            print(
+                json.dumps(
+                    datos_sensor,
+                    indent=4,
+                    ensure_ascii=False
+                )
+            )
 
-        contador_mensajes += 1
+            # Enviar telemetría al backend
+            enviar_telemetria(datos_sensor)
 
-        # max_messages = 0 significa ejecución continua
+            contador_mensajes += 1
+
+            # max_messages = 0 significa ejecución continua
+            if (
+                max_messages > 0
+                and contador_mensajes >= max_messages
+            ):
+                break
+
         if max_messages > 0 and contador_mensajes >= max_messages:
             print("\nSimulación finalizada.")
             break

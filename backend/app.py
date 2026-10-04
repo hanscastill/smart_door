@@ -1,6 +1,10 @@
 from flask import Flask, request, jsonify, render_template
 import sqlite3
 import os
+import threading
+import json
+import paho.mqtt.client as mqtt
+
 
 app = Flask(__name__)
 
@@ -244,9 +248,61 @@ def recibir_telemetria():
             "fields": faltantes_medicion
         }), 400
 
-    # -------------------------------------------------------
-    # Determinar estado de alerta de SmartDoor
-    # -------------------------------------------------------
+    # --------------------------------------------------
+    # Validar tipos de datos
+    # --------------------------------------------------
+
+    if not isinstance(datos["sequence"], int):
+        return jsonify({
+            "status": "error",
+            "message": "Tipo de dato invalido",
+            "field": "sequence",
+            "expected": "integer"
+        }), 400
+
+    if not isinstance(measurements["open_duration"], (int, float)):
+        return jsonify({
+            "status": "error",
+            "message": "Tipo de dato invalido",
+            "field": "open_duration",
+            "expected": "number"
+        }), 400
+
+    if not isinstance(measurements["access_count"], int):
+        return jsonify({
+            "status": "error",
+            "message": "Tipo de dato invalido",
+            "field": "access_count",
+            "expected": "integer"
+        }), 400
+
+    if not isinstance(measurements["door_state"], str):
+        return jsonify({
+            "status": "error",
+            "message": "Tipo de dato invalido",
+            "field": "door_state",
+            "expected": "string"
+        }), 400
+
+        # --------------------------------------------------
+    # Validar reglas de negocio de SmartDoor
+    # --------------------------------------------------
+
+    if measurements["door_state"] not in ["OPEN", "CLOSED"]:
+        return jsonify({
+            "status": "error",
+            "message": "Estado de puerta invalido",
+            "field": "door_state",
+            "expected": "OPEN o CLOSED"
+        }), 400
+
+    if measurements["door_state"] == "CLOSED" and measurements["open_duration"] != 0:
+        return jsonify({
+            "status": "error",
+            "message": "Una puerta CLOSED debe tener open_duration igual a 0",
+            "field": "open_duration",
+            "expected": 0
+        }), 400
 
     door_state = measurements["door_state"]
     open_duration = measurements["open_duration"]
@@ -473,15 +529,237 @@ def probar_base_datos():
             "error": str(error)
         }), 500
 
+# ==================================================
+# CONFIGURACION MQTT SMARTDOOR
+# ==================================================
 
+MQTT_BROKER = "127.0.0.1"
+MQTT_PORT = 1883
+MQTT_TOPIC = "smartdoor/telemetry"
+
+
+def on_mqtt_connect(client, userdata, flags, reason_code, properties):
+    print("=== MQTT SMARTDOOR ===")
+
+    if reason_code == 0:
+        print("Conectado correctamente al broker MQTT")
+        print("Broker:", MQTT_BROKER)
+        print("Puerto:", MQTT_PORT)
+        print("Topic:", MQTT_TOPIC)
+
+        client.subscribe(MQTT_TOPIC)
+
+        print("Suscripcion MQTT realizada correctamente")
+    else:
+        print("Error conectando al broker MQTT:", reason_code)
+
+
+def on_mqtt_message(client, userdata, msg):
+
+    print("\n==============================================")
+    print("NUEVA TELEMETRIA RECIBIDA POR MQTT")
+    print("==============================================")
+
+    try:
+        payload = msg.payload.decode("utf-8")
+        datos = json.loads(payload)
+
+        print("Topic:", msg.topic)
+        print("Payload:", datos)
+
+        # ------------------------------------------
+        # Validar campos principales
+        # ------------------------------------------
+
+        campos_obligatorios = [
+            "message_id",
+            "device_id",
+            "timestamp",
+            "sequence",
+            "measurements"
+        ]
+
+        faltantes = [
+            campo
+            for campo in campos_obligatorios
+            if campo not in datos
+        ]
+
+        if faltantes:
+            print("ERROR MQTT - Faltan campos:", faltantes)
+            return
+
+        measurements = datos["measurements"]
+
+        if not isinstance(measurements, dict):
+            print("ERROR MQTT - measurements debe ser un objeto JSON")
+            return
+
+        campos_medicion = [
+            "door_state",
+            "open_duration",
+            "access_count"
+        ]
+
+        faltantes_medicion = [
+            campo
+            for campo in campos_medicion
+            if campo not in measurements
+        ]
+
+        if faltantes_medicion:
+            print(
+                "ERROR MQTT - Faltan campos en measurements:",
+                faltantes_medicion
+            )
+            return
+
+        # ------------------------------------------
+        # Validar tipos
+        # ------------------------------------------
+
+        if not isinstance(datos["sequence"], int):
+            print("ERROR MQTT - sequence debe ser integer")
+            return
+
+        if not isinstance(
+            measurements["open_duration"],
+            (int, float)
+        ):
+            print("ERROR MQTT - open_duration debe ser numerico")
+            return
+
+        if not isinstance(measurements["access_count"], int):
+            print("ERROR MQTT - access_count debe ser integer")
+            return
+
+        if not isinstance(measurements["door_state"], str):
+            print("ERROR MQTT - door_state debe ser string")
+            return
+
+        # ------------------------------------------
+        # Reglas SmartDoor
+        # ------------------------------------------
+
+        door_state = measurements["door_state"]
+        open_duration = measurements["open_duration"]
+        access_count = measurements["access_count"]
+
+        if door_state not in ["OPEN", "CLOSED"]:
+            print("ERROR MQTT - door_state invalido")
+            return
+
+        if door_state == "CLOSED" and open_duration != 0:
+            print(
+                "ERROR MQTT - Una puerta CLOSED "
+                "debe tener open_duration = 0"
+            )
+            return
+
+        # ------------------------------------------
+        # Calcular alerta
+        # ------------------------------------------
+
+        if door_state == "OPEN" and open_duration > 30:
+            alert_status = "ALERT"
+        else:
+            alert_status = "NORMAL"
+
+        # ------------------------------------------
+        # Guardar en SQLite
+        # ------------------------------------------
+
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+
+        cursor.execute("""
+            INSERT INTO telemetry (
+                message_id,
+                device_id,
+                timestamp,
+                sequence,
+                door_state,
+                open_duration,
+                access_count,
+                alert_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            datos["message_id"],
+            datos["device_id"],
+            datos["timestamp"],
+            datos["sequence"],
+            door_state,
+            open_duration,
+            access_count,
+            alert_status
+        ))
+
+        conexion.commit()
+        conexion.close()
+
+        print("----------------------------------------------")
+        print("TELEMETRIA MQTT GUARDADA EN SQLITE")
+        print("Message ID:", datos["message_id"])
+        print("Device ID:", datos["device_id"])
+        print("Estado:", door_state)
+        print("Tiempo abierta:", open_duration)
+        print("Accesos:", access_count)
+        print("Alerta:", alert_status)
+        print("----------------------------------------------")
+
+    except sqlite3.IntegrityError as error:
+        print("MQTT - Message ID duplicado:", error)
+
+    except json.JSONDecodeError as error:
+        print("MQTT - JSON invalido:", error)
+
+    except Exception as error:
+        print("ERROR procesando MQTT:", error)
+
+
+def iniciar_mqtt():
+
+    print("Iniciando cliente MQTT SmartDoor...")
+
+    cliente = mqtt.Client(
+        mqtt.CallbackAPIVersion.VERSION2,
+        client_id="smartdoor-backend"
+    )
+
+    cliente.on_connect = on_mqtt_connect
+    cliente.on_message = on_mqtt_message
+
+    cliente.connect(
+        MQTT_BROKER,
+        MQTT_PORT,
+        60
+    )
+
+    cliente.loop_forever()
 # ==========================================
 # INICIAR SERVIDOR
 # ==========================================
-
 if __name__ == "__main__":
+
+    print("==============================================")
+    print("INICIANDO SMARTDOOR BACKEND")
+    print("==============================================")
+
+    # Iniciar MQTT en segundo plano
+    hilo_mqtt = threading.Thread(
+        target=iniciar_mqtt,
+        daemon=True
+    )
+
+    hilo_mqtt.start()
+
+    print("Cliente MQTT iniciado en segundo plano")
+
+    # Iniciar servidor Flask
     app.run(
         host="0.0.0.0",
         port=5000,
-        debug=True
+        debug=True,
+        use_reloader=False
     )
-

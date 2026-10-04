@@ -82,6 +82,28 @@
         Monitoreo del estado del sensor de puerta.
     </p>
 
+   <div style="margin-bottom: 20px;">
+    <label for="deviceFilter" style="font-weight: bold; margin-right: 10px;">
+        Dispositivo:
+    </label>
+
+<select id="deviceFilter"
+        onchange="actualizarDatos()"
+        style="
+            padding: 10px 14px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 15px;
+            background: white;
+            cursor: pointer;
+        ">
+
+    <option value="ALL">Todos los dispositivos</option>
+
+</select>
+
+
+</div>
     <div class="tarjetas">
 
         <div class="tarjeta">
@@ -114,6 +136,48 @@
 
     </div>
 
+     <!-- ======================================== -->
+<!-- RESUMEN GENERAL DE DISPOSITIVOS -->
+<!-- ======================================== -->
+
+<div id="resumenDispositivos" style="margin-top: 25px; margin-bottom: 25px;">
+
+    <h2>Resumen de dispositivos</h2>
+
+    <div class="tarjetas">
+
+        <div class="tarjeta">
+            <div class="titulo">Dispositivos monitoreados</div>
+            <div class="valor" id="totalDevices">
+                0
+            </div>
+        </div>
+
+        <div class="tarjeta">
+            <div class="titulo">Puertas abiertas</div>
+            <div class="valor" id="openDevices">
+                0
+            </div>
+        </div>
+
+        <div class="tarjeta">
+            <div class="titulo">Puertas cerradas</div>
+            <div class="valor" id="closedDevices">
+                0
+            </div>
+        </div>
+
+        <div class="tarjeta">
+            <div class="titulo">Dispositivos en alerta</div>
+            <div class="valor" id="alertDevices">
+                0
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
     <div style="display: flex; gap: 10px; margin-bottom: 25px;">
 
     <button onclick="actualizarDatos()">
@@ -132,17 +196,18 @@
         <table id="tablaHistorial" style="width:100%; border-collapse:collapse;">
             <thead>
                 <tr>
-                    <th style="padding:12px; border-bottom:1px solid #ddd;">Fecha/Hora</th>
-                    <th style="padding:12px; border-bottom:1px solid #ddd;">Estado</th>
-                    <th style="padding:12px; border-bottom:1px solid #ddd;">Tiempo abierta</th>
-                    <th style="padding:12px; border-bottom:1px solid #ddd;">Aperturas</th>
-                    <th style="padding:12px; border-bottom:1px solid #ddd;">Alerta</th>
+                   <th style="padding:12px; border-bottom:1px solid #ddd;">Fecha/Hora</th>
+                   <th style="padding:12px; border-bottom:1px solid #ddd;">Dispositivo</th>
+                   <th style="padding:12px; border-bottom:1px solid #ddd;">Estado</th>
+                   <th style="padding:12px; border-bottom:1px solid #ddd;">Tiempo abierta</th>
+                   <th style="padding:12px; border-bottom:1px solid #ddd;">Aperturas</th>
+                   <th style="padding:12px; border-bottom:1px solid #ddd;">Alerta</th>
                 </tr>
             </thead>
 
             <tbody id="historialBody">
                 <tr>
-                    <td colspan="5" style="padding:15px; text-align:center;">
+                    <td colspan="6" style="padding:15px; text-align:center;">
                         Sin lecturas registradas
                     </td>
                 </tr>
@@ -154,22 +219,199 @@
 </div>
 
 <script>
+
+  function cargarDispositivos(telemetria) {
+
+    const deviceFilter =
+        document.getElementById("deviceFilter");
+
+    // Guardar dispositivo actualmente seleccionado
+    const seleccionActual = deviceFilter.value;
+
+    // Obtener solamente los dispositivos oficiales
+const dispositivosPermitidos = [
+    "DOOR-001",
+    "DOOR-002",
+    "DOOR-003"
+];
+
+const dispositivos = [
+    ...new Set(
+        telemetria
+            .map(lectura => lectura.device_id)
+            .filter(deviceId =>
+                dispositivosPermitidos.includes(deviceId)
+            )
+    )
+].sort();
+
+    // Limpiar desplegable
+    deviceFilter.innerHTML =
+        '<option value="ALL">Todos los dispositivos</option>';
+
+    // Agregar dispositivos encontrados en la API
+    dispositivos.forEach(deviceId => {
+
+        const opcion = document.createElement("option");
+
+        opcion.value = deviceId;
+        opcion.textContent = deviceId;
+
+        deviceFilter.appendChild(opcion);
+    });
+
+    // Mantener la selección anterior
+    if (dispositivos.includes(seleccionActual)) {
+        deviceFilter.value = seleccionActual;
+    } else {
+        deviceFilter.value = "ALL";
+    }
+}
+
 async function actualizarDatos() {
     try {
         // ==========================================
         // 1. OBTENER DATOS DESDE LA API
         // ==========================================
-        const respuesta = await fetch("/api/lecturas");
+       const respuesta = await fetch("/api/telemetry");
 
         if (!respuesta.ok) {
             throw new Error("Error HTTP: " + respuesta.status);
         }
 
         const datos = await respuesta.json();
-
+        cargarDispositivos(datos.telemetry);
         console.log("Datos recibidos:", datos);
+        
+        // ==========================================
+// FILTRAR POR DISPOSITIVO
+// ==========================================
+
+const deviceFilter =
+    document.getElementById("deviceFilter");
+
+const dispositivoSeleccionado =
+    deviceFilter.value;
+
+let telemetriaFiltrada = datos.telemetry;
+
+if (dispositivoSeleccionado !== "ALL") {
+
+    telemetriaFiltrada =
+        datos.telemetry.filter(lectura =>
+            lectura.device_id === dispositivoSeleccionado
+        );
+
+}
+
+console.log(
+    "Dispositivo seleccionado:",
+    dispositivoSeleccionado
+);
+
+console.log(
+    "Telemetría filtrada:",
+    telemetriaFiltrada
+);
+// ========================================
+// RESUMEN GENERAL DE DISPOSITIVOS
+// ========================================
+
+// Obtener los elementos HTML del resumen
+const totalDevices =
+    document.getElementById("totalDevices");
+
+const openDevices =
+    document.getElementById("openDevices");
+
+const closedDevices =
+    document.getElementById("closedDevices");
+
+const alertDevices =
+    document.getElementById("alertDevices");
 
 
+// Guardar solamente la lectura más reciente
+// de cada dispositivo
+const ultimasLecturas = {};
+
+datos.telemetry.forEach(lectura => {
+
+    const dispositivo = lectura.device_id;
+
+    if (
+        !ultimasLecturas[dispositivo] ||
+        new Date(lectura.timestamp) >
+        new Date(ultimasLecturas[dispositivo].timestamp)
+    ) {
+        ultimasLecturas[dispositivo] = lectura;
+    }
+
+});
+
+
+// Convertir las últimas lecturas en una lista
+const dispositivosPermitidos = [
+    "DOOR-001",
+    "DOOR-002",
+    "DOOR-003"
+];
+
+const dispositivosActuales =
+    Object.values(ultimasLecturas).filter(lectura =>
+        dispositivosPermitidos.includes(lectura.device_id)
+    );
+
+
+// Contadores
+let abiertas = 0;
+let cerradas = 0;
+let alertas = 0;
+
+
+// Analizar el estado actual de cada dispositivo
+dispositivosActuales.forEach(lectura => {
+
+    if (lectura.door_state === "OPEN") {
+        abiertas++;
+    }
+
+    if (lectura.door_state === "CLOSED") {
+        cerradas++;
+    }
+
+    if (lectura.alert_status === "ALERT") {
+        alertas++;
+    }
+
+});
+
+
+// Mostrar resultados
+totalDevices.textContent =
+    dispositivosActuales.length;
+
+openDevices.textContent =
+    abiertas;
+
+closedDevices.textContent =
+    cerradas;
+
+alertDevices.textContent =
+    alertas;
+
+
+// Colorear alertas
+if (alertas > 0) {
+    alertDevices.style.color = "red";
+} else {
+    alertDevices.style.color = "green";
+}
+
+console.log(
+    "Últimas lecturas por dispositivo:",
+    ultimasLecturas
+);
         // ==========================================
         // 2. OBTENER ELEMENTOS DEL DASHBOARD
         // ==========================================
@@ -198,7 +440,7 @@ async function actualizarDatos() {
         // ==========================================
         // 4. COMPROBAR SI HAY DATOS
         // ==========================================
-        if (!datos.lecturas || datos.lecturas.length === 0) {
+       if (!telemetriaFiltrada || telemetriaFiltrada.length === 0)  {
 
             doorState.textContent = "Sin datos";
             openDuration.textContent = "0 segundos";
@@ -223,10 +465,9 @@ async function actualizarDatos() {
         // 5. OBTENER LA ÚLTIMA LECTURA
         // ==========================================
         const ultimaLectura =
-            datos.lecturas[datos.lecturas.length - 1];
+           telemetriaFiltrada[0];
 
-        const mediciones =
-            ultimaLectura.measurements;
+        const mediciones = ultimaLectura;
 
 
         // ==========================================
@@ -274,13 +515,11 @@ async function actualizarDatos() {
         // ==========================================
         // 9. CREAR HISTORIAL
         // ==========================================
-        datos.lecturas
-            .slice()
-            .reverse()
-            .forEach(lectura => {
+      telemetriaFiltrada
+    .slice(0, 10)
+    .forEach(lectura =>  {
 
-                const medicion =
-                    lectura.measurements;
+                const medicion = lectura;
 
                 const fecha =
                     new Date(lectura.timestamp);
@@ -299,14 +538,21 @@ async function actualizarDatos() {
                     ">
                         ${fecha.toLocaleString()}
                     </td>
+<td style="
+    padding:12px;
+    border-bottom:1px solid #ddd;
+    font-weight:bold;
+">
+    ${lectura.device_id}
+</td>
 
-                    <td style="
-                        padding:12px;
-                        border-bottom:1px solid #ddd;
-                        font-weight:bold;
-                    ">
-                        ${medicion.door_state}
-                    </td>
+<td style="
+    padding:12px;
+    border-bottom:1px solid #ddd;
+    font-weight:bold;
+">
+    ${medicion.door_state}
+</td>
 
                     <td style="
                         padding:12px;
