@@ -1,0 +1,32 @@
+flowchart TD
+
+    A["Dispositivos IoT simulados<br/>DOOR-001 | DOOR-002 | DOOR-003"]
+
+    B["Simulador SmartDoor<br/>smartdoor_simulator.py"]
+
+    C["Broker MQTT - Mosquitto<br/>Topic: smartdoor/telemetry"]
+
+    D["Backend SmartDoor<br/>FastAPI"]
+
+    E["Validación y procesamiento<br/>Contrato JSON"]
+
+    F[("Base de datos SQLite<br/>database/smartdoor.db")]
+
+    G["API REST SmartDoor"]
+
+    H["Dashboard"]
+
+    I["Alertas"]
+
+    J["Reportes y gráficas"]
+
+    A --> B
+    B -->|"Publicación MQTT / JSON"| C
+    C -->|"Suscripción MQTT"| D
+    D --> E
+    E -->|"Persistencia"| F
+    F --> G
+    D --> G
+    G --> H
+    G --> I
+    G --> J
