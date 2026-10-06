@@ -32,6 +32,7 @@ open_probability = config["open_probability"]
 normal_open_cycles = config["normal_open_cycles"]
 alert_after_seconds = config["alert_after_seconds"]
 max_open_seconds = config["max_open_seconds"]
+transport = config.get("transport", "both").lower()
 
 # ============================================================
 # CONFIGURACION MQTT
@@ -386,10 +387,22 @@ try:
                 )
             )
 
-            # Enviar telemetría al backend
-            enviar_telemetria(datos_sensor)
-            # Publicar también la telemetría mediante MQTT
-            publicar_mqtt(datos_sensor)
+            # Seleccionar transporte de telemetría
+            if transport == "http":
+                enviar_telemetria(datos_sensor)
+
+            elif transport == "mqtt":
+                publicar_mqtt(datos_sensor)
+
+            elif transport == "both":
+                enviar_telemetria(datos_sensor)
+                publicar_mqtt(datos_sensor)
+
+            else:
+                print(
+                    f"Transport no válido: {transport}. "
+                    "Use http, mqtt o both."
+                )
             
 
             contador_mensajes += 1
