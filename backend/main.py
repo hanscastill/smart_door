@@ -65,6 +65,8 @@ def on_mqtt_connect(
 
 def on_mqtt_message(client, userdata, msg):
 
+    conexion = None
+
     try:
         mensaje = msg.payload.decode("utf-8")
         datos = json.loads(mensaje)
@@ -74,17 +76,142 @@ def on_mqtt_message(client, userdata, msg):
         print("Dispositivo:", datos.get("device_id"))
         print("Message ID:", datos.get("message_id"))
 
+        # Validar campos principales
+        campos_obligatorios = [
+            "message_id",
+            "device_id",
+            "timestamp",
+            "sequence",
+            "measurements"
+        ]
+
+        faltantes = [
+            campo for campo in campos_obligatorios
+            if campo not in datos
+        ]
+
+        if faltantes:
+            print("ERROR MQTT - Faltan campos:", faltantes)
+            return
+
+        measurements = datos["measurements"]
+
+        if not isinstance(measurements, dict):
+            print("ERROR MQTT - measurements debe ser un objeto JSON")
+            return
+
+        campos_medicion = [
+            "door_state",
+            "open_duration",
+            "access_count"
+        ]
+
+        faltantes_medicion = [
+            campo for campo in campos_medicion
+            if campo not in measurements
+        ]
+
+        if faltantes_medicion:
+            print(
+                "ERROR MQTT - Faltan campos en measurements:",
+                faltantes_medicion
+            )
+            return
+
+        # Validar tipos
+        if not isinstance(datos["sequence"], int):
+            print("ERROR MQTT - sequence debe ser integer")
+            return
+
+        if not isinstance(measurements["open_duration"], (int, float)):
+            print("ERROR MQTT - open_duration debe ser numerico")
+            return
+
+        if not isinstance(measurements["access_count"], int):
+            print("ERROR MQTT - access_count debe ser integer")
+            return
+
+        if not isinstance(measurements["door_state"], str):
+            print("ERROR MQTT - door_state debe ser string")
+            return
+
+        door_state = measurements["door_state"]
+        open_duration = measurements["open_duration"]
+        access_count = measurements["access_count"]
+
+        # Reglas SmartDoor
+        if door_state not in ["OPEN", "CLOSED"]:
+            print("ERROR MQTT - door_state invalido")
+            return
+
+        if door_state == "CLOSED" and open_duration != 0:
+            print(
+                "ERROR MQTT - Una puerta CLOSED "
+                "debe tener open_duration = 0"
+            )
+            return
+
+        # Calcular alerta
+        if door_state == "OPEN" and open_duration > 30:
+            alert_status = "ALERT"
+        else:
+            alert_status = "NORMAL"
+
+        # Guardar en SQLite
+        conexion = obtener_conexion()
+        cursor = conexion.cursor()
+
+        cursor.execute("""
+            INSERT INTO telemetry (
+                message_id,
+                device_id,
+                timestamp,
+                sequence,
+                door_state,
+                open_duration,
+                access_count,
+                alert_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            datos["message_id"],
+            datos["device_id"],
+            datos["timestamp"],
+            datos["sequence"],
+            door_state,
+            open_duration,
+            access_count,
+            alert_status
+        ))
+
+        conexion.commit()
+
+        print("----------------------------------------")
+        print("TELEMETRIA MQTT GUARDADA EN SQLITE")
+        print("Message ID:", datos["message_id"])
+        print("Device ID:", datos["device_id"])
+        print("Estado:", door_state)
+        print("Tiempo abierta:", open_duration)
+        print("Accesos:", access_count)
+        print("Alerta:", alert_status)
+        print("----------------------------------------")
+
+    except sqlite3.IntegrityError as error:
+        if conexion:
+            conexion.rollback()
+        print("MQTT - Message ID duplicado:", error)
+
     except json.JSONDecodeError as error:
-        print(
-            "MQTT - JSON invalido:",
-            error
-        )
+        print("MQTT - JSON invalido:", error)
 
     except Exception as error:
-        print(
-            "Error procesando MQTT:",
-            error
-        )
+        if conexion:
+            conexion.rollback()
+        print("ERROR procesando MQTT:", error)
+
+    finally:
+        if conexion:
+            conexion.close()
 
 
 def iniciar_mqtt():
