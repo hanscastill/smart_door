@@ -2,7 +2,7 @@
 
 SmartDoor es un proyecto IoT orientado al monitoreo de sensores de puertas.
 
-El sistema simula dispositivos IoT, genera telemetría, transmite información mediante MQTT y HTTP, procesa los datos con un backend desarrollado con FastAPI y almacena la información de forma persistente en SQLite.
+El sistema simula dispositivos IoT, genera telemetría y transmite actualmente la información mediante MQTT hacia un broker Mosquitto. El backend desarrollado con FastAPI procesa los mensajes y almacena la información de forma persistente en SQLite. La API REST mantiene comunicación HTTP para consultas y operaciones del sistema.
 
 El proyecto también dispone de Dashboard web, módulo de alertas, reportes, gráficas y pruebas automáticas.
 
@@ -14,7 +14,7 @@ Implementar una solución IoT capaz de:
 
 - Simular múltiples sensores de puertas.
 - Generar telemetría estructurada en formato JSON.
-- Transmitir datos mediante MQTT y HTTP.
+- Transmitir la telemetría de los dispositivos mediante MQTT.
 - Validar la información recibida.
 - Detectar estados normales y situaciones de alerta.
 - Persistir la telemetría en SQLite.
@@ -60,7 +60,6 @@ Diagrama de arquitectura:
 smart_door/
 ├── backend/
 │   ├── __init__.py
-│   ├── app.py
 │   ├── database.py
 │   ├── main.py
 │   ├── schemas.py
@@ -76,9 +75,7 @@ smart_door/
 │
 ├── simulator/
 │   ├── config.json
-│   ├── simulator.py
 │   ├── smartdoor_simulator.py
-│   ├── receiver_test.py
 │   └── tests/
 │       └── test_simulator.py
 │
@@ -98,6 +95,8 @@ smart_door/
 ├── README.md
 ├── LICENSE
 └── .gitignore
+
+```
 
 ---
 
@@ -120,6 +119,8 @@ Ejemplo:
   }
 }
 
+```
+
 ---
 
 ## 5. Configuración del simulador
@@ -134,7 +135,7 @@ El sistema simula los siguientes dispositivos:
 - DOOR-002
 - DOOR-003
 
-La configuración permite controlar parámetros como el intervalo de envío, escenario de ejecución, reintentos HTTP, probabilidad de apertura y tiempo para generar alertas.
+La configuración permite controlar parámetros como el intervalo de envío, escenario de ejecución, probabilidad de apertura, tiempo para generar alertas y transporte de telemetría. Actualmente el transporte configurado es MQTT.
 
 ---
 
@@ -192,7 +193,7 @@ Entre las funciones implementadas se encuentran:
 - Consulta de dispositivos registrados.
 - Consulta general de lecturas.
 - Consulta de telemetría por dispositivo.
-- Recepción de telemetría mediante HTTP.
+- Recepción y procesamiento de telemetría mediante MQTT.
 - Validación de los datos recibidos.
 - Persistencia de información en SQLite.
 
@@ -220,6 +221,8 @@ Las pruebas pueden ejecutarse mediante:
 
 ```bash
 pytest -v
+
+```
 
 ---
 
@@ -283,5 +286,5 @@ Las evidencias del proyecto se encuentran en:
 
 ## 15. Estado del proyecto
 
-SmartDoor cuenta con simulación de múltiples dispositivos IoT, configuración externa, contrato JSON común, transmisión mediante MQTT y HTTP, backend FastAPI, API REST, persistencia SQLite, validación de datos, escenarios NORMAL y ALERT, Dashboard, módulo de alertas, reportes, gráficas, pruebas automáticas y documentación técnica.
+SmartDoor cuenta con simulación de múltiples dispositivos IoT, configuración externa, contrato JSON común, transmisión de telemetría mediante MQTT, broker Mosquitto, backend FastAPI, API REST mediante HTTP, persistencia SQLite, validación de datos, escenarios NORMAL y ALERT, Dashboard, módulo de alertas, reportes, gráficas, pruebas automáticas y documentación técnica.
 
