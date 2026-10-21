@@ -892,3 +892,70 @@ def registrar_telemetria(datos: TelemetryCreate):
         "device_id": datos.device_id,
         "alert_status": alert_status
     }
+
+
+# ============================================
+# GUIA 4 - CONSULTAR MEDICIONES SMARTDOOR
+# GET /api/measurements
+# ============================================
+
+from fastapi import Query
+
+@app.get("/api/measurements")
+def consultar_measurements(
+    device_id: str | None = None,
+    limit: int = Query(default=100, ge=1, le=100),
+    offset: int = Query(default=0, ge=0)
+):
+    conexion = obtener_conexion()
+    conexion.row_factory = sqlite3.Row
+
+    try:
+        cursor = conexion.cursor()
+
+        consulta = """
+            SELECT
+                message_id,
+                device_id,
+                timestamp,
+                sequence,
+                door_state,
+                open_duration,
+                access_count,
+                alert_status
+            FROM telemetry
+        """
+
+        parametros = []
+
+        if device_id:
+            consulta += " WHERE device_id = ?"
+            parametros.append(device_id)
+
+        consulta += " ORDER BY rowid DESC LIMIT ? OFFSET ?"
+        parametros.extend([limit, offset])
+
+        cursor.execute(consulta, parametros)
+
+        mediciones = [
+            dict(fila)
+            for fila in cursor.fetchall()
+        ]
+
+        return {
+            "status": "success",
+            "total": len(mediciones),
+            "device_id": device_id,
+            "limit": limit,
+            "offset": offset,
+            "measurements": mediciones
+        }
+
+    except sqlite3.Error:
+        raise HTTPException(
+            status_code=500,
+            detail="Error consultando mediciones"
+        )
+
+    finally:
+        conexion.close()
