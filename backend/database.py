@@ -55,10 +55,17 @@ def verificar_conexion():
         "tables": tablas
     }
 
-def list_measurements(limit: int = 20, offset: int = 0) -> list[dict]:
+
+def list_measurements(
+    device_id: str | None = None,
+    limit: int = 20,
+    offset: int = 0
+) -> list[dict]:
     """
-    Consulta las mediciones almacenadas en SQLite.
+    Consulta las mediciones almacenadas en SQLite
+    con filtros y paginacion.
     """
+
     if not 1 <= limit <= 100:
         raise ValueError("limit debe estar entre 1 y 100")
 
@@ -68,8 +75,7 @@ def list_measurements(limit: int = 20, offset: int = 0) -> list[dict]:
     conexion = obtener_conexion()
 
     try:
-        cursor = conexion.execute(
-            """
+        consulta = """
             SELECT
                 message_id,
                 device_id,
@@ -80,16 +86,27 @@ def list_measurements(limit: int = 20, offset: int = 0) -> list[dict]:
                 access_count,
                 alert_status
             FROM telemetry
-            ORDER BY rowid DESC
-            LIMIT ? OFFSET ?
-            """,
-            (limit, offset)
+        """
+
+        parametros = []
+
+        if device_id:
+            consulta += " WHERE device_id = ?"
+            parametros.append(device_id)
+
+        consulta += " ORDER BY rowid DESC LIMIT ? OFFSET ?"
+        parametros.extend([limit, offset])
+
+        cursor = conexion.execute(
+            consulta,
+            parametros
         )
 
         return [dict(fila) for fila in cursor.fetchall()]
 
     finally:
         conexion.close()
+
 
 
 # ==========================================

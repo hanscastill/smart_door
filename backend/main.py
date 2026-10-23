@@ -2,10 +2,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+
 from backend.database import (
     obtener_conexion,
     list_devices,
-    get_device_summary
+    get_device_summary,
+    list_measurements
 )
 
 from backend.schemas import (
