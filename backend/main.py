@@ -2,7 +2,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from backend.database import obtener_conexion
+from backend.database import (
+    obtener_conexion,
+    list_devices,
+    get_device_summary
+)
 
 from backend.schemas import (
     TelemetryCreate,
@@ -541,6 +545,24 @@ def listar_dispositivos():
 
     conexion.close()
 
+    # Integrar resumen de telemetria por dispositivo
+    resumenes = {
+        item["device_id"]: item
+        for item in list_devices()
+    }
+
+    for dispositivo in dispositivos:
+        resumen = resumenes.get(dispositivo["device_id"])
+
+        dispositivo["measurement_count"] = (
+            resumen["measurement_count"] if resumen else 0
+        )
+
+        dispositivo["last_timestamp"] = (
+            resumen["last_timestamp"] if resumen else None
+        )
+
+
     return {
         "status": "success",
         "total": len(dispositivos),
@@ -579,10 +601,24 @@ def obtener_dispositivo(device_id: str):
             detail="Dispositivo SmartDoor no encontrado"
         )
 
+ 
+    dispositivo = dict(fila)
+
+    resumen = get_device_summary(device_id)
+
+    dispositivo["measurement_count"] = (
+        resumen["measurement_count"] if resumen else 0
+    )
+
+    dispositivo["last_timestamp"] = (
+        resumen["last_timestamp"] if resumen else None
+    )
+
     return {
         "status": "success",
-        "device": dict(fila)
+        "device": dispositivo
     }
+
 
 # ------------------------------------------------
 # ACTUALIZAR DISPOSITIVO SMARTDOOR
