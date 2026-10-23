@@ -54,3 +54,85 @@ def verificar_conexion():
         "database": DB_PATH,
         "tables": tablas
     }
+
+def list_measurements(limit: int = 20, offset: int = 0) -> list[dict]:
+    """
+    Consulta las mediciones almacenadas en SQLite.
+    """
+    if not 1 <= limit <= 100:
+        raise ValueError("limit debe estar entre 1 y 100")
+
+    if offset < 0:
+        raise ValueError("offset no puede ser negativo")
+
+    conexion = obtener_conexion()
+
+    try:
+        cursor = conexion.execute(
+            """
+            SELECT
+                message_id,
+                device_id,
+                timestamp,
+                sequence,
+                door_state,
+                open_duration,
+                access_count,
+                alert_status
+            FROM telemetry
+            ORDER BY rowid DESC
+            LIMIT ? OFFSET ?
+            """,
+            (limit, offset)
+        )
+
+        return [dict(fila) for fila in cursor.fetchall()]
+
+    finally:
+        conexion.close()
+
+
+# ==========================================
+# FASE 3 - DISPOSITIVOS DESDE TELEMETRIA
+# ==========================================
+
+def list_devices() -> list[dict]:
+    conexion = obtener_conexion()
+
+    try:
+        cursor = conexion.execute("""
+            SELECT
+                device_id,
+                COUNT(*) AS measurement_count,
+                MAX(timestamp) AS last_timestamp
+            FROM telemetry
+            GROUP BY device_id
+            ORDER BY device_id
+        """)
+
+        return [dict(fila) for fila in cursor.fetchall()]
+
+    finally:
+        conexion.close()
+
+
+def get_device_summary(device_id: str) -> dict | None:
+    conexion = obtener_conexion()
+
+    try:
+        cursor = conexion.execute("""
+            SELECT
+                device_id,
+                COUNT(*) AS measurement_count,
+                MAX(timestamp) AS last_timestamp
+            FROM telemetry
+            WHERE device_id = ?
+            GROUP BY device_id
+        """, (device_id,))
+
+        fila = cursor.fetchone()
+
+        return dict(fila) if fila else None
+
+    finally:
+        conexion.close()
