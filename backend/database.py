@@ -59,11 +59,13 @@ def verificar_conexion():
 def list_measurements(
     device_id: str | None = None,
     limit: int = 20,
-    offset: int = 0
+    offset: int = 0,
+    from_date: str | None = None,
+    to_date: str | None = None
 ) -> list[dict]:
     """
-    Consulta las mediciones almacenadas en SQLite
-    con filtros y paginacion.
+    Consulta histórica de telemetría SmartDoor
+    con filtros, paginación y rango temporal UTC.
     """
 
     if not 1 <= limit <= 100:
@@ -88,11 +90,23 @@ def list_measurements(
             FROM telemetry
         """
 
+        condiciones = []
         parametros = []
 
         if device_id:
-            consulta += " WHERE device_id = ?"
+            condiciones.append("device_id = ?")
             parametros.append(device_id)
+
+        if from_date is not None:
+            condiciones.append("timestamp >= ?")
+            parametros.append(from_date)
+
+        if to_date is not None:
+            condiciones.append("timestamp <= ?")
+            parametros.append(to_date)
+
+        if condiciones:
+            consulta += " WHERE " + " AND ".join(condiciones)
 
         consulta += " ORDER BY rowid DESC LIMIT ? OFFSET ?"
         parametros.extend([limit, offset])
@@ -106,8 +120,6 @@ def list_measurements(
 
     finally:
         conexion.close()
-
-
 
 # ==========================================
 # FASE 3 - DISPOSITIVOS DESDE TELEMETRIA

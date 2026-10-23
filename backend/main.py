@@ -2,6 +2,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from datetime import datetime, timezone
+from fastapi import Query
+
 
 from backend.database import (
     obtener_conexion,
@@ -939,18 +942,54 @@ def registrar_telemetria(datos: TelemetryCreate):
 
 from fastapi import Query
 
+
 @app.get("/api/measurements")
 def consultar_measurements(
     device_id: str | None = None,
     limit: int = Query(default=100, ge=1, le=100),
-    offset: int = Query(default=0, ge=0)
+    offset: int = Query(default=0, ge=0),
+    from_date: str | None = Query(default=None, alias="from"),
+    to_date: str | None = Query(default=None, alias="to")
 ):
+    from datetime import datetime, timezone
+
+    def validar_fecha(valor):
+        if valor is None:
+            return None
+
+        try:
+            fecha = datetime.fromisoformat(
+                valor.replace("Z", "+00:00")
+            )
+
+            if fecha.tzinfo is None:
+                raise ValueError("Falta zona horaria")
+
+            return fecha.astimezone(
+                timezone.utc
+            ).isoformat(timespec="microseconds").replace(
+                "+00:00", "Z"
+            )
+
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail="Fecha inválida. Use ISO 8601 con zona horaria."
+            )
+
+    desde = validar_fecha(from_date)
+    hasta = validar_fecha(to_date)
+
+    if desde and hasta and desde > hasta:
+        raise HTTPException(
+            status_code=422,
+            detail="La fecha inicial no puede superar la final"
+        )
+
     conexion = obtener_conexion()
     conexion.row_factory = sqlite3.Row
 
     try:
-        cursor = conexion.cursor()
-
         consulta = """
             SELECT
                 message_id,
@@ -964,20 +1003,30 @@ def consultar_measurements(
             FROM telemetry
         """
 
+        condiciones = []
         parametros = []
 
         if device_id:
-            consulta += " WHERE device_id = ?"
+            condiciones.append("device_id = ?")
             parametros.append(device_id)
 
-        consulta += " ORDER BY rowid DESC LIMIT ? OFFSET ?"
+        if desde:
+            condiciones.append("timestamp >= ?")
+            parametros.append(desde)
+
+        if hasta:
+            condiciones.append("timestamp <= ?")
+            parametros.append(hasta)
+
+        if condiciones:
+            consulta += " WHERE " + " AND ".join(condiciones)
+
+        consulta += " ORDER BY timestamp DESC, rowid DESC LIMIT ? OFFSET ?"
         parametros.extend([limit, offset])
 
-        cursor.execute(consulta, parametros)
-
+        cursor = conexion.execute(consulta, parametros)
         mediciones = [
-            dict(fila)
-            for fila in cursor.fetchall()
+            dict(fila) for fila in cursor.fetchall()
         ]
 
         return {
@@ -986,6 +1035,8 @@ def consultar_measurements(
             "device_id": device_id,
             "limit": limit,
             "offset": offset,
+            "from": from_date,
+            "to": to_date,
             "measurements": mediciones
         }
 
@@ -997,3 +1048,4 @@ def consultar_measurements(
 
     finally:
         conexion.close()
+
