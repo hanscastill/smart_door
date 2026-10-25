@@ -161,7 +161,8 @@ def on_mqtt_message(client, userdata, msg):
             return
 
         # Calcular alerta
-        if door_state == "OPEN" and open_duration > 30:
+        # Se activa a partir de 30 segundos.
+        if door_state == "OPEN" and open_duration >= 30:
             alert_status = "ALERT"
         else:
             alert_status = "NORMAL"
@@ -882,7 +883,7 @@ def registrar_telemetria(datos: TelemetryCreate):
         )
 
     # Calcular alerta
-    if door_state == "OPEN" and open_duration > 30:
+    if door_state == "OPEN" and open_duration >=30:
         alert_status = "ALERT"
     else:
         alert_status = "NORMAL"
