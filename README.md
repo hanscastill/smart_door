@@ -54,6 +54,35 @@ Instalar dependencias:
 python -m pip install -r backend/requirements.txt
 ```
 
+### Inicializar la base de datos SQLite
+
+Antes de iniciar el backend por primera vez, es necesario
+crear las tablas utilizadas por SmartDoor.
+
+Desde la raíz del proyecto, ejecutar:
+
+```bash
+python database/init_db.py
+```
+
+El inicializador crea las siguientes tablas:
+
+- `devices`: almacena los dispositivos IoT registrados.
+- `telemetry`: almacena las mediciones enviadas por el simulador.
+
+Para comprobar que la inicialización se realizó correctamente,
+verificar que aparezcan las tablas `devices` y `telemetry`
+en la terminal.
+
+**Nota:** El inicializador crea las tablas que no existen,
+pero no modifica automáticamente las estructuras de tablas
+antiguas. Si se utiliza una base de datos de una versión
+anterior, puede requerirse una migración del esquema.
+
+Una vez inicializada la base de datos, continuar con
+la ejecución del backend.
+
+
 ## 5. Ejecutar el backend
 
 Desde la raíz del proyecto:
