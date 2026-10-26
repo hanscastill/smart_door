@@ -1,290 +1,171 @@
-# SmartDoor - Sistema IoT de Monitoreo de Puertas
 
-SmartDoor es un proyecto IoT orientado al monitoreo de sensores de puertas.
+# SmartDoor – Sistema IoT de monitoreo de puertas
 
-El sistema simula dispositivos IoT, genera telemetría y transmite actualmente la información mediante MQTT hacia un broker Mosquitto. El backend desarrollado con FastAPI procesa los mensajes y almacena la información de forma persistente en SQLite. La API REST mantiene comunicación HTTP para consultas y operaciones del sistema.
+## 1. Descripción
 
-El proyecto también dispone de Dashboard web, módulo de alertas, reportes, gráficas y pruebas automáticas.
+SmartDoor es un sistema IoT que permite simular múltiples sensores de puertas, transmitir telemetría, almacenar mediciones y consultar información mediante una API REST.
 
----
+El proyecto incluye escenarios NORMAL y ALERT, persistencia SQLite, dashboard, alertas, reportes, gráficas, pruebas automatizadas y documentación técnica.
 
-## 1. Objetivo del proyecto
+## 2. Arquitectura
 
-Implementar una solución IoT capaz de:
+Componentes principales:
 
-- Simular múltiples sensores de puertas.
-- Generar telemetría estructurada en formato JSON.
-- Transmitir la telemetría de los dispositivos mediante MQTT.
-- Validar la información recibida.
-- Detectar estados normales y situaciones de alerta.
-- Persistir la telemetría en SQLite.
-- Consultar información mediante una API REST.
-- Visualizar datos mediante un Dashboard.
-- Generar reportes y gráficas.
-- Ejecutar pruebas automáticas.
-- Documentar la arquitectura y las decisiones técnicas.
-.
----
+- Simulador IoT desarrollado en Python.
+- Backend FastAPI.
+- Base de datos SQLite.
+- API REST HTTP.
+- Integración MQTT mediante Mosquitto.
+- Dashboard web para visualización.
+- Pruebas automatizadas con pytest.
 
-## 2. Arquitectura general
+Flujo principal:
 
-El flujo principal de SmartDoor es:
+Simulador IoT → HTTP POST → FastAPI → SQLite → HTTP GET → Cliente.
 
-Dispositivos IoT simulados 
-↓ 
-Broker MQTT - Mosquitto 
-↓ 
-Backend FastAPI 
-↓ 
-Validación del contrato JSON 
-↓ 
-Base de datos SQLite 
-↓ 
-API REST  .
-↓ 
-Dashboard / Alertas / Reportes / Gráficas
+La integración MQTT constituye un mecanismo adicional de recepción de telemetría.
 
-La documentación detallada de arquitectura se encuentra en:
+## 3. Requisitos
 
-`docs/arquitectura/arquitectura-backend.md`
+- Python 3.10 o superior.
+- Git.
+- Dependencias de backend/requirements.txt.
+- Mosquitto para las pruebas que utilicen MQTT.
 
-Diagrama de arquitectura:
+## 4. Instalación
 
-`docs/arquitectura/arquitectura-backend.png`
-
----
-
-## 3. Estructura del proyecto
-
-```text
-smart_door/
-├── backend/
-│   ├── __init__.py
-│   ├── database.py
-│   ├── main.py
-│   ├── schemas.py
-│   ├── requirements.txt
-│   └── templates/
-│       ├── alertas.html
-│       ├── dashboard.html
-│       └── reportes.html
-│
-├── database/
-│   ├── init_db.py
-│   └── smartdoor.db
-│
-├── simulator/
-│   ├── config.json
-│   ├── smartdoor_simulator.py
-│   └── tests/
-│       └── test_simulator.py
-│
-├── tests/
-│   ├── test_backend.py
-│   └── test_smartdoor.py
-│
-├── docs/
-│   ├── arquitectura/
-│   │   ├── arquitectura-backend.md
-│   │   └── arquitectura-backend.png
-│   ├── decisiones/
-│   │   └── persistencia.md
-│   └── evidencias/
-│
-├── frontend/
-├── README.md
-├── LICENSE
-└── .gitignore
-
-```
-
----
-
-## 4. Contrato JSON común
-
-SmartDoor utiliza un contrato JSON común para la transmisión de telemetría entre los dispositivos simulados y el backend.
-
-Ejemplo:
-
-```json
-{
-  "message_id": "DOOR-001-000001",
-  "device_id": "DOOR-001",
-  "timestamp": "2026-09-19T05:52:04Z",
-  "sequence": 1,
-  "measurements": {
-    "door_state": "OPEN",
-    "open_duration": 30,
-    "access_count": 1
-  }
-}
-
-```
-
----
-
-## 5. Configuración del simulador
-
-La configuración del simulador se encuentra en:
-
-`simulator/config.json`
-
-El sistema simula los siguientes dispositivos:
-
-- DOOR-001
-- DOOR-002
-- DOOR-003
-
-La configuración permite controlar parámetros como el intervalo de envío, escenario de ejecución, probabilidad de apertura, tiempo para generar alertas y transporte de telemetría. Actualmente el transporte configurado es MQTT.
-
----
-
-## 6. Escenario normal
-
-SmartDoor permite generar lecturas correspondientes al funcionamiento normal del sensor.
-
-Ejemplo:
-
-- door_state: CLOSED
-- open_duration: 0
-- access_count: 0
-- alert_status: NORMAL
-
-Una puerta abierta durante un tiempo inferior al umbral establecido también puede considerarse una lectura normal.
-
----
-
-## 7. Escenario de alerta
-
-Cuando una puerta permanece abierta durante el tiempo establecido para generar una alerta, SmartDoor registra:
-
-- door_state: OPEN
-- alert_status: ALERT
-
-El backend recibe, valida y procesa esta información antes de almacenarla en la base de datos.
-
----
-
-## 8. Persistencia
-
-SmartDoor utiliza SQLite como mecanismo de persistencia.
-
-La base de datos principal se encuentra en:
-
-`database/smartdoor.db`
-
-La decisión técnica sobre el mecanismo de persistencia está documentada en:
-
-`docs/decisiones/persistencia.md`
-
-La información almacenada puede posteriormente ser consultada mediante la API REST, el Dashboard, el módulo de alertas y los reportes.
-
----
-
-## 9. API y FastAPI
-
-El backend de SmartDoor está desarrollado con FastAPI.
-
-La API permite recibir, validar, almacenar y consultar la telemetría generada por los dispositivos IoT.
-
-Entre las funciones implementadas se encuentran:
-
-- Verificación del estado de la API.
-- Consulta de dispositivos registrados.
-- Consulta general de lecturas.
-- Consulta de telemetría por dispositivo.
-- Recepción y procesamiento de telemetría mediante MQTT.
-- Validación de los datos recibidos.
-- Persistencia de información en SQLite.
-
----
-
-## 10. Comunicación MQTT
-
-SmartDoor utiliza MQTT para la comunicación de telemetría entre los dispositivos simulados y el backend.
-
-El broker utilizado es Mosquitto.
-
-Tópico MQTT:
-
-`smartdoor/telemetry`
-
-Los dispositivos simulados publican telemetría en este tópico y el backend procesa los mensajes recibidos.
-
----
-
-## 11. Pruebas automáticas
-
-SmartDoor cuenta con pruebas automáticas desarrolladas con Pytest.
-
-Las pruebas pueden ejecutarse mediante:
+Clonar el repositorio:
 
 ```bash
-pytest -v
-
+git clone https://github.com/hanscastill/smart_door.git
+cd smart_door
 ```
 
----
+Crear entorno virtual:
 
-## 12. Visualización
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
 
-SmartDoor dispone de una interfaz web para visualizar la información procesada.
+Instalar dependencias:
 
-El sistema incluye:
+```bash
+python -m pip install -r backend/requirements.txt
+```
 
-- Dashboard principal.
-- Estado de los dispositivos.
-- Historial de lecturas.
-- Módulo de alertas.
-- Reportes estadísticos.
-- Gráfica del tiempo de apertura.
-- Gráfica de actividad de accesos.
-- Comparación entre alertas y estados normales.
+## 5. Ejecutar el backend
 
----
+Desde la raíz del proyecto:
 
-## 13. Tecnologías utilizadas
+```bash
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-El proyecto utiliza las siguientes tecnologías:
+Documentación Swagger:
 
-- Python
-- FastAPI
-- SQLite
-- MQTT
-- Mosquitto
-- HTTP
-- REST API
-- JSON
-- Pytest
-- HTML
-- Git
-- GitHub
-- GitHub Codespaces
-- Mermaid
+http://127.0.0.1:8000/docs
 
----
+## 6. Ejecutar el simulador
 
-## 14. Documentación técnica
+En otra terminal:
 
-La documentación de arquitectura se encuentra en:
+```bash
+python simulator/smartdoor_simulator.py
+```
 
-`docs/arquitectura/arquitectura-backend.md`
+El simulador utiliza la configuración definida en:
 
-El diagrama gráfico de arquitectura se encuentra en:
+simulator/config.json
 
-`docs/arquitectura/arquitectura-backend.png`
+El backend debe estar ejecutándose para recibir telemetría HTTP.
 
-La decisión sobre el mecanismo de persistencia se encuentra en:
+## 7. Endpoints principales
 
-`docs/decisiones/persistencia.md`
+| Método | Ruta | Propósito |
+|---|---|---|
+| GET | /api/devices | Consultar dispositivos |
+| GET | /api/devices/{device_id} | Consultar dispositivo específico |
+| GET | /api/measurements | Consultar mediciones |
+| GET | /api/measurements?device_id=DOOR-001 | Filtrar por dispositivo |
+| GET | /api/measurements?limit=10 | Limitar resultados |
+| GET | /api/measurements?offset=10 | Paginar resultados |
+| POST | /api/telemetry | Registrar telemetría |
 
-Las evidencias del proyecto se encuentran en:
+## 8. Ejemplos de consultas GET
 
-`docs/evidencias/`
+Consultar mediciones:
 
----
+```bash
+curl "http://127.0.0.1:8000/api/measurements"
+```
 
-## 15. Estado del proyecto
+Filtrar por dispositivo:
 
-SmartDoor cuenta con simulación de múltiples dispositivos IoT, configuración externa, contrato JSON común, transmisión de telemetría mediante MQTT, broker Mosquitto, backend FastAPI, API REST mediante HTTP, persistencia SQLite, validación de datos, escenarios NORMAL y ALERT, Dashboard, módulo de alertas, reportes, gráficas, pruebas automáticas y documentación técnica.
+```bash
+curl "http://127.0.0.1:8000/api/measurements?device_id=DOOR-001"
+```
 
+Limitar resultados:
+
+```bash
+curl "http://127.0.0.1:8000/api/measurements?limit=5"
+```
+
+Consultar dispositivo inexistente:
+
+```bash
+curl -i "http://127.0.0.1:8000/api/devices/NO-EXISTE"
+```
+
+## 9. Pruebas automatizadas
+
+Ejecutar:
+
+```bash
+python -m pytest -q tests/test_api_queries.py
+```
+
+La suite mínima verifica:
+
+1. GET /api/measurements responde HTTP 200.
+2. El parámetro limit restringe resultados.
+3. El filtro device_id funciona.
+4. Un dispositivo inexistente responde HTTP 404.
+5. Un límite inválido responde HTTP 422.
+
+Resultado verificado en la Fase 8:
+
+5 passed, 1 warning.
+
+Las pruebas utilizan una base de datos temporal independiente.
+
+## 10. Estado del proyecto
+
+- Simulación IoT implementada.
+- API REST funcional.
+- Persistencia SQLite verificada.
+- Consultas y filtros implementados.
+- Regla de alertas corregida.
+- Cinco pruebas automatizadas aprobadas.
+- Evidencias técnicas de las fases anteriores disponibles.
+
+Pendiente:
+
+- Revisión de reproducibilidad por otro integrante.
+- Registro de hallazgos y correcciones.
+- Integración final de la rama de trabajo.
+
+## 11. Evidencias
+
+Las evidencias de la Guía 4 están organizadas en:
+
+docs/evidencias/guia-4/
+
+## 12. Integrantes
+
+Proyecto académico SmartDoor.
+
+Universidad de San Buenaventura – Facultad de Ingeniería.
+
+Completar los nombres de los integrantes responsables antes de la entrega.
