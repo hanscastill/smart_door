@@ -23,6 +23,13 @@ import sqlite3
 import json
 import threading
 import paho.mqtt.client as mqtt
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+
+# ==================================================
+# FASTAPI SMARTDOOR
+# ==================================================
+
 
 # ==================================================
 # FASTAPI SMARTDOOR
@@ -33,7 +40,34 @@ app = FastAPI(
     description="API REST para gestion de dispositivos y telemetria SmartDoor",
     version="1.0.0"
 )
+
+# ==================================================
+# GUIA 5 - ACTIVIDAD 3
+# CONFIGURACION CORS SMARTDOOR
+# ==================================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://effective-funicular-g4xwj9xw64p2qrv-5500.app.github.dev"
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"]
+)
+
 templates = Jinja2Templates(directory="backend/templates")
+
+# ==========================================
+# SMARTDOOR - FRONTEND
+# ACTIVIDAD 2
+# ==========================================
+
+app.mount(
+    "/frontend",
+    StaticFiles(directory="frontend", html=True),
+    name="frontend"
+)
 
 # ==================================================
 # CONFIGURACION MQTT SMARTDOOR
@@ -454,6 +488,7 @@ def health():
 # POST /api/devices
 # --------------------------------------------------
 
+
 @app.post("/api/devices", status_code=201)
 def crear_dispositivo(device: DeviceCreate):
 
@@ -476,19 +511,9 @@ def crear_dispositivo(device: DeviceCreate):
             1 if device.enabled else 0
         ))
 
-        conexion.commit()
-        conexion.close()
-
-    except sqlite3.IntegrityError:
-        conexion.rollback()
-        conexion.close()
-
-        raise HTTPException(
-            status_code=409,
-            detail="El message_id ya existe"
-        )
-
         nuevo_id = cursor.lastrowid
+
+        conexion.commit()
 
         cursor.execute("""
             SELECT
@@ -511,6 +536,8 @@ def crear_dispositivo(device: DeviceCreate):
         }
 
     except sqlite3.IntegrityError:
+
+        conexion.rollback()
 
         raise HTTPException(
             status_code=409,
