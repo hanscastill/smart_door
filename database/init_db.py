@@ -4,6 +4,7 @@ import os
 
 # ==========================================
 # SMARTDOOR - INICIALIZACION SQLITE
+# FASE 9 - CORRECCION DE REPRODUCIBILIDAD
 # ==========================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -11,12 +12,16 @@ DB_PATH = os.path.join(BASE_DIR, "smartdoor.db")
 
 
 def inicializar_base_datos():
+
     conexion = sqlite3.connect(DB_PATH)
 
     try:
         cursor = conexion.cursor()
 
-        # CREAR TABLA DE DISPOSITIVOS
+        # ==================================
+        # CREAR TABLA DEVICES
+        # ==================================
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS devices (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,7 +33,10 @@ def inicializar_base_datos():
             )
         """)
 
-        # CREAR TABLA DE TELEMETRIA
+        # ==================================
+        # CREAR TABLA TELEMETRY
+        # ==================================
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS telemetry (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,12 +54,18 @@ def inicializar_base_datos():
 
         conexion.commit()
 
+        # ==================================
+        # MOSTRAR TABLAS CREADAS
+        # ==================================
+
         cursor.execute("""
             SELECT name
             FROM sqlite_master
             WHERE type = 'table'
             ORDER BY name
         """)
+
+        tablas = cursor.fetchall()
 
         print("====================================")
         print(" SMARTDOOR - BASE DE DATOS SQLITE")
@@ -61,15 +75,16 @@ def inicializar_base_datos():
         print()
         print("Tablas disponibles:")
 
-        for tabla in cursor.fetchall():
+        for tabla in tablas:
             print(" -", tabla[0])
 
         print()
         print("Inicializacion finalizada correctamente.")
 
     except sqlite3.Error as error:
+
         conexion.rollback()
-        print("Error:", error)
+        print("Error inicializando SQLite:", error)
         raise
 
     finally:

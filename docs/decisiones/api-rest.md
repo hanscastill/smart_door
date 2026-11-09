@@ -41,8 +41,4 @@ información devuelta, estableciendo un máximo de
 100 registros por solicitud. Cuando un dispositivo
 no exista, la API responderá con HTTP 404.
 Este diseño permitirá ampliar el backend FastAPI
-existente sin reconstruir el proyecto.
-
-## Estado
-
-Diseño propuesto para implementar en la Guía 4.
+existente sin reconstruir todo lo que se hizo en el proyecto.

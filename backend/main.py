@@ -865,6 +865,58 @@ def telemetria_dispositivo(device_id: str):
 
 
 # ==================================================
+# GUIA 5 - ULTIMA LECTURA POR DISPOSITIVO
+# GET /api/devices/{device_id}/latest
+# ==================================================
+
+@app.get("/api/devices/{device_id}/latest")
+def ultima_lectura_dispositivo(device_id: str):
+
+    conexion = obtener_conexion()
+    conexion.row_factory = sqlite3.Row
+
+    try:
+        cursor = conexion.execute("""
+            SELECT
+                message_id,
+                device_id,
+                timestamp,
+                sequence,
+                door_state,
+                open_duration,
+                access_count,
+                alert_status
+            FROM telemetry
+            WHERE device_id = ?
+            ORDER BY timestamp DESC, rowid DESC
+            LIMIT 1
+        """, (device_id,))
+
+        lectura = cursor.fetchone()
+
+        if lectura is None:
+            raise HTTPException(
+                status_code=404,
+                detail="No existen lecturas para este dispositivo"
+            )
+
+        return {
+            "status": "success",
+            "device_id": device_id,
+            "latest": dict(lectura)
+        }
+
+    except sqlite3.Error:
+        raise HTTPException(
+            status_code=500,
+            detail="Error consultando la última lectura"
+        )
+
+    finally:
+        conexion.close()
+
+
+# ==================================================
 # REGISTRAR TELEMETRIA
 # ==================================================
 
