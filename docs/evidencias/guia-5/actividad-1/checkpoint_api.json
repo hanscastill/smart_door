@@ -1,0 +1,47 @@
+{
+    "dispositivos": {
+        "http_status": 200,
+        "endpoint": "/api/devices",
+        "campos_json": [
+            "status",
+            "total",
+            "devices"
+        ],
+        "total": 3,
+        "device_id": null
+    },
+    "ultima_lectura": {
+        "http_status": 200,
+        "endpoint": "/api/devices/DOOR-001/latest",
+        "campos_json": [
+            "status",
+            "device_id",
+            "latest"
+        ],
+        "total": null,
+        "device_id": "DOOR-001"
+    },
+    "historico": {
+        "http_status": 200,
+        "endpoint": "/api/devices/DOOR-001/telemetry",
+        "campos_json": [
+            "status",
+            "device_id",
+            "total",
+            "telemetry"
+        ],
+        "total": 1783,
+        "device_id": "DOOR-001"
+    },
+    "alertas": {
+        "http_status": 200,
+        "endpoint": "/api/alertas",
+        "campos_json": [
+            "status",
+            "total",
+            "alertas"
+        ],
+        "total": 3711,
+        "device_id": null
+    }
+}

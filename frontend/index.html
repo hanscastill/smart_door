@@ -1,0 +1,437 @@
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>SmartDoor - Panel IoT</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f3f6fb;
+            color: #243247;
+        }
+
+        header {
+            background: #183153;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        section {
+            background: white;
+            padding: 22px;
+            border-radius: 12px;
+            margin-bottom: 22px;
+            box-shadow: 0 3px 12px #00000012;
+        }
+
+        button {
+            background: #1769aa;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 7px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #105487;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        select {
+            padding: 12px;
+            width: 100%;
+            max-width: 450px;
+            margin: 12px 0;
+            border: 1px solid #b8c5d5;
+            border-radius: 7px;
+        }
+
+        .tarjetas {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .tarjeta {
+            background: #f0f5fb;
+            border: 1px solid #dbe5f0;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .tarjeta h3 {
+            font-size: 15px;
+            margin: 0 0 14px;
+        }
+
+        .valor {
+            font-size: 25px;
+            font-weight: bold;
+            color: #183153;
+        }
+
+        .mensaje {
+            padding: 12px;
+            background: #eaf2ff;
+            border-radius: 7px;
+            margin-top: 15px;
+        }
+
+        pre {
+            background: #f5f7fa;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        /* =====================================
+           ACTIVIDAD 6 - HISTÓRICO
+        ===================================== */
+
+        .panel-historico {
+            max-width: 1060px;
+            margin: 24px auto;
+            padding: 24px;
+            background: white;
+            border-radius: 12px;
+        }
+
+        .panel-historico h2 {
+            color: #183153;
+        }
+
+        .grafica-bloque {
+            margin-top: 25px;
+        }
+
+        .grafica-bloque h3 {
+            margin-bottom: 12px;
+            color: #183153;
+        }
+
+        /* Contenedor de altura fija */
+
+        .grafica-contenedor {
+            position: relative;
+            display: block;
+            width: 100%;
+            height: 280px;
+            min-height: 280px;
+            max-height: 280px;
+            padding: 12px;
+            border: 1px solid #dbe4ee;
+            border-radius: 10px;
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        /* Canvas ajustado al contenedor */
+
+        .grafica-contenedor canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100% !important;
+            max-height: 100% !important;
+        }
+
+        #mensajeHistorico {
+            margin-top: 15px;
+            padding: 12px;
+            background: #eaf2ff;
+            border-radius: 7px;
+        }
+
+        #interpretacionHistorico {
+            padding: 15px;
+            background: #f0f5fb;
+            border-left: 4px solid #1769aa;
+            border-radius: 6px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 600px) {
+
+            header {
+                padding: 18px;
+            }
+
+            main {
+                padding: 0 12px;
+            }
+
+            section {
+                padding: 16px;
+            }
+
+            .panel-historico {
+                margin: 15px 12px;
+                padding: 16px;
+            }
+
+            .grafica-contenedor {
+                height: 240px;
+                min-height: 240px;
+                max-height: 240px;
+            }
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <header>
+        <h1>SmartDoor - Sistema IoT</h1>
+        <p>Panel de monitoreo de puertas inteligentes</p>
+    </header>
+
+    <main>
+
+        <!-- =====================================
+             ACTIVIDAD 2 - CONSULTA DISPOSITIVOS
+        ===================================== -->
+
+        <section>
+
+            <h2>Consulta de dispositivos</h2>
+
+            <p>
+                Consultar dispositivos registrados
+                mediante la API REST.
+            </p>
+
+            <button id="btnConsultar" type="button">
+                Consultar dispositivos
+            </button>
+
+            <h3>Resultados de la API</h3>
+
+            <pre id="resultado">Esperando consulta...</pre>
+
+        </section>
+
+
+        <!-- =====================================
+             ACTIVIDAD 5 - ESTADO ACTUAL
+        ===================================== -->
+
+        <section>
+
+            <h2>Estado actual del dispositivo</h2>
+
+            <label for="selectorDispositivo">
+                Seleccionar dispositivo:
+            </label>
+
+            <div>
+                <select id="selectorDispositivo">
+                    <option value="">
+                        Cargando dispositivos...
+                    </option>
+                </select>
+            </div>
+
+            <button id="btnEstadoActual" type="button">
+                Consultar última lectura
+            </button>
+
+            <div class="tarjetas">
+
+                <div class="tarjeta">
+                    <h3>Estado de puerta</h3>
+                    <div class="valor" id="estadoPuerta">
+                        --
+                    </div>
+                </div>
+
+                <div class="tarjeta">
+                    <h3>Tiempo de apertura</h3>
+                    <div class="valor" id="tiempoApertura">
+                        -- segundos
+                    </div>
+                </div>
+
+                <div class="tarjeta">
+                    <h3>Accesos registrados</h3>
+                    <div class="valor" id="accesos">
+                        --
+                    </div>
+                </div>
+
+                <div class="tarjeta">
+                    <h3>Estado de alerta</h3>
+                    <div class="valor" id="estadoAlerta">
+                        --
+                    </div>
+                </div>
+
+            </div>
+
+            <p>
+                <strong>Última actualización:</strong>
+                <span id="fechaActualizacion">
+                    Sin datos disponibles
+                </span>
+            </p>
+
+            <div class="mensaje"
+                 id="mensajeEstado"
+                 role="status"
+                 aria-live="polite">
+
+                Selecciona un dispositivo para consultar
+                su última lectura.
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================
+             ACTIVIDAD 6 - HISTÓRICO
+        ===================================== -->
+
+        <section class="panel-historico">
+
+            <h2>Histórico de monitoreo SmartDoor</h2>
+
+            <p>
+                Evolución temporal del tiempo de apertura
+                y la cantidad de accesos registrados.
+            </p>
+
+            <label for="limiteHistorico">
+                Cantidad de registros:
+            </label>
+
+            <div>
+                <select id="limiteHistorico">
+                    <option value="5">
+                        Últimos 5
+                    </option>
+
+                    <option value="10" selected>
+                        Últimos 10
+                    </option>
+
+                    <option value="20">
+                        Últimos 20
+                    </option>
+
+                    <option value="50">
+                        Últimos 50
+                    </option>
+                </select>
+            </div>
+
+            <button id="btnHistorico" type="button">
+                Consultar histórico
+            </button>
+
+            <p id="mensajeHistorico"
+               role="status"
+               aria-live="polite">
+                Selecciona un dispositivo para consultar
+                su histórico.
+            </p>
+
+
+            <!-- GRÁFICA 1 -->
+
+            <div class="grafica-bloque">
+
+                <h3>
+                    Tiempo de apertura (segundos)
+                </h3>
+
+                <div class="grafica-contenedor">
+                    <canvas id="graficaApertura"></canvas>
+                </div>
+
+            </div>
+
+
+            <!-- GRÁFICA 2 -->
+
+            <div class="grafica-bloque">
+
+                <h3>
+                    Accesos registrados
+                </h3>
+
+                <div class="grafica-contenedor">
+                    <canvas id="graficaAccesos"></canvas>
+                </div>
+
+            </div>
+
+
+            <!-- INTERPRETACIÓN -->
+
+            <div class="grafica-bloque">
+
+                <h3>Interpretación del histórico</h3>
+
+                <p id="interpretacionHistorico">
+                    Aquí aparecerá el análisis de las
+                    lecturas consultadas.
+                </p>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================
+         LIBRERÍA CHART.JS
+    ===================================== -->
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
+
+    <!-- CONFIGURACIÓN DE API -->
+
+    <script src="config.js"></script>
+
+
+    <!-- FUNCIONALIDADES SMARTDOOR -->
+
+    <script src="app.js"></script>
+
+</body>
+
+</html>

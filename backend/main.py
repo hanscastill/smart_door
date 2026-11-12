@@ -23,6 +23,13 @@ import sqlite3
 import json
 import threading
 import paho.mqtt.client as mqtt
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+
+# ==================================================
+# FASTAPI SMARTDOOR
+# ==================================================
+
 
 # ==================================================
 # FASTAPI SMARTDOOR
@@ -33,7 +40,34 @@ app = FastAPI(
     description="API REST para gestion de dispositivos y telemetria SmartDoor",
     version="1.0.0"
 )
+
+# ==================================================
+# GUIA 5 - ACTIVIDAD 3
+# CONFIGURACION CORS SMARTDOOR
+# ==================================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://effective-funicular-g4xwj9xw64p2qrv-5500.app.github.dev"
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"]
+)
+
 templates = Jinja2Templates(directory="backend/templates")
+
+# ==========================================
+# SMARTDOOR - FRONTEND
+# ACTIVIDAD 2
+# ==========================================
+
+app.mount(
+    "/frontend",
+    StaticFiles(directory="frontend", html=True),
+    name="frontend"
+)
 
 # ==================================================
 # CONFIGURACION MQTT SMARTDOOR
@@ -454,6 +488,7 @@ def health():
 # POST /api/devices
 # --------------------------------------------------
 
+
 @app.post("/api/devices", status_code=201)
 def crear_dispositivo(device: DeviceCreate):
 
@@ -476,19 +511,9 @@ def crear_dispositivo(device: DeviceCreate):
             1 if device.enabled else 0
         ))
 
-        conexion.commit()
-        conexion.close()
-
-    except sqlite3.IntegrityError:
-        conexion.rollback()
-        conexion.close()
-
-        raise HTTPException(
-            status_code=409,
-            detail="El message_id ya existe"
-        )
-
         nuevo_id = cursor.lastrowid
+
+        conexion.commit()
 
         cursor.execute("""
             SELECT
@@ -511,6 +536,8 @@ def crear_dispositivo(device: DeviceCreate):
         }
 
     except sqlite3.IntegrityError:
+
+        conexion.rollback()
 
         raise HTTPException(
             status_code=409,
@@ -862,6 +889,58 @@ def telemetria_dispositivo(device_id: str):
         "total": len(registros),
         "telemetry": registros
     }
+
+
+# ==================================================
+# GUIA 5 - ULTIMA LECTURA POR DISPOSITIVO
+# GET /api/devices/{device_id}/latest
+# ==================================================
+
+@app.get("/api/devices/{device_id}/latest")
+def ultima_lectura_dispositivo(device_id: str):
+
+    conexion = obtener_conexion()
+    conexion.row_factory = sqlite3.Row
+
+    try:
+        cursor = conexion.execute("""
+            SELECT
+                message_id,
+                device_id,
+                timestamp,
+                sequence,
+                door_state,
+                open_duration,
+                access_count,
+                alert_status
+            FROM telemetry
+            WHERE device_id = ?
+            ORDER BY timestamp DESC, rowid DESC
+            LIMIT 1
+        """, (device_id,))
+
+        lectura = cursor.fetchone()
+
+        if lectura is None:
+            raise HTTPException(
+                status_code=404,
+                detail="No existen lecturas para este dispositivo"
+            )
+
+        return {
+            "status": "success",
+            "device_id": device_id,
+            "latest": dict(lectura)
+        }
+
+    except sqlite3.Error:
+        raise HTTPException(
+            status_code=500,
+            detail="Error consultando la última lectura"
+        )
+
+    finally:
+        conexion.close()
 
 
 # ==================================================
