@@ -198,3 +198,64 @@ Proyecto académico SmartDoor.
 Universidad de San Buenaventura – Facultad de Ingeniería.
 
 Completar los nombres de los integrantes responsables antes de la entrega.
+## 13. Documentación de la Guía 5
+
+### Propósito del sistema
+SmartDoor es un sistema IoT para monitorear puertas mediante
+telemetría, consultar dispositivos y apoyar decisiones con alertas.
+
+### Componentes principales
+- Simulador IoT desarrollado en Python.
+- Backend REST desarrollado con FastAPI.
+- Base de datos SQLite.
+- Frontend web con HTML y JavaScript.
+- Dashboard para consultas, reportes y alertas.
+
+### Configuración del simulador
+El archivo simulator/config.json permite configurar:
+- devices: identificadores de dispositivos.
+- interval_seconds: intervalo entre lecturas.
+- scenario: escenario de simulación.
+- max_messages: cantidad máxima de mensajes.
+- open_probability: probabilidad de apertura.
+- alert_after_seconds: umbral de alerta.
+- transport: mecanismo de comunicación.
+
+### Escalabilidad
+Se realizaron pruebas con 100 dispositivos simulados.
+Los escenarios de 1.000 o más dispositivos son propuestas
+de ampliación y no pruebas realizadas.
+
+### Resultados verificados
+- API REST operativa.
+- 100 dispositivos registrados.
+- 100 dispositivos con lecturas.
+- 1137 lecturas acumuladas en la verificación realizada.
+- Cinco consultas HTTP exitosas.
+- Tiempo promedio observado: 7.07 ms.
+
+Los tiempos corresponden a pruebas locales y no
+representan el rendimiento de un despliegue urbano.
+
+### Escenario Smart City
+El análisis de ampliación a una ciudad inteligente
+se encuentra documentado en:
+
+docs/evidencias/actividad10_smart_city.md
+
+### Evidencias
+Las evidencias de las actividades se conservan
+en el directorio docs/evidencias/.
+
+### Consideraciones de seguridad
+Para un despliegue real se requieren autenticación,
+autorización, protección de comunicaciones y
+configuración segura de los servicios.
+
+### Limitaciones
+SQLite y la infraestructura de laboratorio son
+adecuadas para las pruebas realizadas, pero un
+despliegue con miles de dispositivos requeriría
+evaluar concurrencia, almacenamiento, disponibilidad
+y escalabilidad.
+
