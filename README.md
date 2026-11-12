@@ -259,3 +259,21 @@ despliegue con miles de dispositivos requeriría
 evaluar concurrencia, almacenamiento, disponibilidad
 y escalabilidad.
 
+
+
+## 14. Ejecutar el dashboard web
+
+Desde la raiz del proyecto, iniciar el backend:
+
+    python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+
+Una vez iniciado el servidor, acceder a:
+
+- Dashboard: http://127.0.0.1:8000/dashboard
+- Reportes: http://127.0.0.1:8000/reportes
+- Alertas: http://127.0.0.1:8000/alertas
+- Documentacion API: http://127.0.0.1:8000/docs
+
+En GitHub Codespaces se utiliza la URL correspondiente al puerto 8000.
+
+El dashboard permite consultar dispositivos, reportes y alertas del sistema SmartDoor.
